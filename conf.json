@@ -1,0 +1,33 @@
+{
+  "screen": {
+    "name": "root",
+    "subdivisions": {
+      "type": "tiled",
+      "orientation": "vertical",
+      "screens": [
+        {
+          "name": "A",
+          "delta": 0.3,
+          "module": "CPU"
+        },
+        {
+          "name": "B",
+          "subdivisions": {
+            "type": "tiled",
+            "orientation": "horizontal",
+            "screens": [
+              {
+                "name": "C",
+                "module": "RAM"
+              },
+              {
+                "name": "D",
+                "module": "HDD"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

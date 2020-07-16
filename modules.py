@@ -20,7 +20,7 @@ def CPU(q, width: int, height: int, border: Union[bool, Iterable], rate: float):
         tmp += 1
 
         # TODO:
-        #  - Fix rate issue
+        #  - Fix rate issues
         #  - Implement actual functionality of function
 
         # Note to self:
@@ -28,6 +28,7 @@ def CPU(q, width: int, height: int, border: Union[bool, Iterable], rate: float):
         # A few of which are:
         #  - It causes an issue when sent the `SIGTERM` signal ie `CTRL+C`
         #  - If the message formulation takes longer than the remainder of time it will get out of sync quickly
+        #  - Technically the rate does not represent the number of updates per second as it is set to sleep the very duration of its rate
 
         sleep(rate)
 
@@ -40,7 +41,7 @@ def RAM(q, width: int, height: int, border: Union[bool, Iterable], rate: float):
         tmp += 1
 
         # TODO:
-        #  - Fix rate issue
+        #  - Fix rate issues
         #  - Implement actual functionality of function
 
         # Note to self:
@@ -48,6 +49,7 @@ def RAM(q, width: int, height: int, border: Union[bool, Iterable], rate: float):
         # A few of which are:
         #  - It causes an issue when sent the `SIGTERM` signal ie `CTRL+C`
         #  - If the message formulation takes longer than the remainder of time it will get out of sync quickly
+        #  - Technically the rate does not represent the number of updates per second as it is set to sleep the very duration of its rate
 
         sleep(rate)
 
@@ -60,7 +62,7 @@ def HDD(q, width: int, height: int, border: Union[bool, Iterable], rate: float):
         tmp += 1
 
         # TODO:
-        #  - Fix rate issue
+        #  - Fix rate issues
         #  - Implement actual functionality of function
 
         # Note to self:
@@ -68,5 +70,6 @@ def HDD(q, width: int, height: int, border: Union[bool, Iterable], rate: float):
         # A few of which are:
         #  - It causes an issue when sent the `SIGTERM` signal ie `CTRL+C`
         #  - If the message formulation takes longer than the remainder of time it will get out of sync quickly
+        #  - Technically the rate does not represent the number of updates per second as it is set to sleep the very duration of its rate
 
         sleep(rate)

@@ -8,7 +8,8 @@
         {
           "name": "A",
           "delta": 0.3,
-          "module": "CPU"
+          "module": "CPU",
+          "refresh": 2
         },
         {
           "name": "B",
@@ -22,7 +23,8 @@
               },
               {
                 "name": "D",
-                "module": "HDD"
+                "module": "HDD",
+                "refresh": 0.3
               }
             ]
           }

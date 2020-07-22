@@ -27,6 +27,7 @@ class module():
         if module_name == "CPU":
             self.data = open("/proc/stat", "r")
             self.func = self.CPU
+            self.last = [[0] * 6] * 12
         elif module_name == "CPU_LOAD":
             self.data = open("/proc/stat", "r")
             self.func = self.CPU_LOAD
@@ -49,11 +50,21 @@ class module():
 
     def CPU(self):
         self.data.seek(0)
-        msg = self.data.readlines(13)
+        loads = [[float(x) for x in line.split()[1:]] for line in self.data.readlines(13)[1:]]
+
+        cl = [x[0]+x[2] for x in loads]
+        ct = [x[0]+x[2]+x[3] for x in loads]
+        ll = [x[0]+x[2] for x in self.last]
+        lt = [x[0]+x[2]+x[3] for x in self.last]
+
+        cur = [(x-x1)/(t-t1)*100 for x, t, x1, t1 in zip(cl, ct, ll, lt)]
+
+        # Note to self:
+        # Figure out how to distribute the current load for each core into the space given by the parent process
 
         # egrep 'cpu[0-9]+' /proc/stat | awk '{usage=($2+$4)*100/($2+$4+$5)} END {print usage }'
-
-        self.queue.put(message("".join(msg), self.init_x, self.init_y))
+        msg = "\n".join([f"CPU {i}: {x}%" for i, x in enumerate(cur)])
+        self.queue.put(message(msg, self.init_x, self.init_y))
 
     def CPU_LOAD(self):
         """

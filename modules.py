@@ -1,75 +1,103 @@
-from time import sleep
+import os
+import queue
+import sched
+import time
+import multiprocessing as mp
 from typing import Iterable, Union
 
-
 class message():
-    def __init__(self, message: str, x: int = 0, y: int = 0) -> None:
+    def __init__(self, message: str, x: int = 0, y: int = 0, typ: str = "msg") -> None:
         self.x = x
         self.y = y
         self.content = message
+        self.type = typ
 
-def NONE():
-    pass
+class module():
+    def __init__(self, module_name: str, q: mp.Queue, width: int, height: int, border: Union[bool, Iterable], rate: float) -> None:
+        self.queue = q
+        self.sch = sched.scheduler(time.time, time.sleep)
+        self.init_x = 0 if not border else 1
+        self.init_y = 0 if not border else 1
+        self.scr_w = width
+        self.scr_h = height
 
-def CPU(q, width: int, height: int, border: Union[bool, Iterable], rate: float):
-    init_x = 0 if not border else 1
-    init_y = 0 if not border else 1
-    tmp = 0
-    while 1:
-        q.put(message(f"This is the CPU Module\nMessage {tmp}", init_x, init_y), False)
-        tmp += 1
+        self.history = []
 
-        # TODO:
-        #  - Fix rate issues
-        #  - Implement actual functionality of function
+        # Open the file to read before the function is called to avoid opening a file every call
+        if module_name == "CPU":
+            self.data = open("/proc/stat", "r")
+            self.func = self.CPU
+        elif module_name == "CPU_LOAD":
+            self.data = open("/proc/stat", "r")
+            self.func = self.CPU_LOAD
+            self.last = [0] * 6
 
-        # Note to self:
-        # There are several issues with using `sleep()` here.
-        # A few of which are:
-        #  - It causes an issue when sent the `SIGTERM` signal ie `CTRL+C`
-        #  - If the message formulation takes longer than the remainder of time it will get out of sync quickly
-        #  - Technically the rate does not represent the number of updates per second as it is set to sleep the very duration of its rate
+        self.run(rate, self.func)
 
-        sleep(rate)
+    def run(self, rate, func):
+        def tick():
+            t = time.time()
+            cnt = 0
+            while 1:
+                cnt += 1
+                yield max(t + cnt/rate - time.time(),0)
 
-def RAM(q, width: int, height: int, border: Union[bool, Iterable], rate: float):
-    init_x = 0 if not border else 1
-    init_y = 0 if not border else 1
-    tmp = 0
-    while 1:
-        q.put(message(f"This is the RAM Module\nMessage {tmp}", init_x, init_y), False)
-        tmp += 1
+        gen = tick()
+        while 1:
+            func()
+            time.sleep(next(gen))
 
-        # TODO:
-        #  - Fix rate issues
-        #  - Implement actual functionality of function
+    def CPU(self):
+        self.data.seek(0)
+        msg = self.data.readlines(13)
 
-        # Note to self:
-        # There are several issues with using `sleep()` here.
-        # A few of which are:
-        #  - It causes an issue when sent the `SIGTERM` signal ie `CTRL+C`
-        #  - If the message formulation takes longer than the remainder of time it will get out of sync quickly
-        #  - Technically the rate does not represent the number of updates per second as it is set to sleep the very duration of its rate
+        # egrep 'cpu[0-9]+' /proc/stat | awk '{usage=($2+$4)*100/($2+$4+$5)} END {print usage }'
 
-        sleep(rate)
+        self.queue.put(message("".join(msg), self.init_x, self.init_y))
 
-def HDD(q, width: int, height: int, border: Union[bool, Iterable], rate: float):
-    init_x = 0 if not border else 1
-    init_y = 0 if not border else 1
-    tmp = 0
-    while 1:
-        q.put(message(f"This is the HDD Module\nMessage {tmp}", init_x, init_y), False)
-        tmp += 1
+    def CPU_LOAD(self):
+        """
+        This function calculates the current load of all the CPU's on the system through `/proc/stat`. Essentially the function is equivalent to the following bash command:
 
-        # TODO:
-        #  - Fix rate issues
-        #  - Implement actual functionality of function
+        awk '{u=$2+$4; t=$2+$4+$5; if (NR==1){u1=u; t1=t;} else print ($2+$4-u1) * 100 / (t-t1) "%"; }' (grep 'cpu ' /proc/stat) <(sleep 1;grep 'cpu ' /proc/stat)
+        """
+        try:
+            self.data.seek(0)
+            loads = [float(x) for x in self.data.readline().split()[1:]]
 
-        # Note to self:
-        # There are several issues with using `sleep()` here.
-        # A few of which are:
-        #  - It causes an issue when sent the `SIGTERM` signal ie `CTRL+C`
-        #  - If the message formulation takes longer than the remainder of time it will get out of sync quickly
-        #  - Technically the rate does not represent the number of updates per second as it is set to sleep the very duration of its rate
+            cl = loads[0]+loads[2]
+            ct = loads[0]+loads[2]+loads[3]
+            ll = self.last[0]+self.last[2]
+            lt = self.last[0]+self.last[2]+self.last[3]
 
-        sleep(rate)
+            cur = round((cl - ll) / (ct - lt) * (self.scr_h - 2 * self.init_y))
+
+            self.history.append(f"{'|' * cur}{' ' * ((self.scr_h - 2 * self.init_y) - cur)}")
+
+            if len(self.history) > (self.scr_w - (self.init_x * 2)):
+                self.history.pop(0)
+
+            msg = "\n".join(reversed(["".join(x) for x in zip(*self.history)]))
+
+            self.last = loads
+
+            if __name__ == "__main__":
+                print (msg)
+            else:
+                self.queue.put(message(msg, self.init_x, self.init_y))
+        except BaseException as e:
+            if __name__ == "__main__":
+                print(f"Exception occured: {e}")
+            else:
+                self.queue.put(message(f"Exception occured: {e}", typ="log"))
+
+    def RAM(self):
+        pass
+
+    def HDD(self):
+        pass
+
+
+if __name__ == "__main__":
+    tmp_q = queue.Queue()
+    module("CPU_LOAD", tmp_q, 10, 10, False, 2)

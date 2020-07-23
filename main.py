@@ -187,6 +187,10 @@ def main(stdscr, args):
     screens = screen(stdscr, tree, 0, 0, term_width, term_height)
 
     logging.info("Successfully set up screens")
+
+    # Note to self:
+    # Instead of iterating through all the different modules. Use some sort of scheduling so that you only evaluate the modules that you know are gonna be updated every iteration and sleep until the next one.
+    # Each iteration would have to evaluate which modules to check next
     while 1:
         try:
             inp = stdscr.getkey()

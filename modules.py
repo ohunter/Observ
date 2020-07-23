@@ -1,9 +1,11 @@
+import math
+import multiprocessing as mp
 import os
 import queue
 import sched
 import time
-import multiprocessing as mp
 from typing import Iterable, Union
+
 
 class message():
     def __init__(self, message: str, x: int = 0, y: int = 0, typ: str = "msg") -> None:
@@ -21,13 +23,16 @@ class module():
         self.scr_w = width
         self.scr_h = height
 
+        self.prnt_w = self.scr_w - 2 * self.init_x
+        self.prnt_h = self.scr_h - 2 * self.init_y
+
         self.history = []
 
         # Open the file to read before the function is called to avoid opening a file every call
         if module_name == "CPU":
             self.data = open("/proc/stat", "r")
             self.func = self.CPU
-            self.last = [[0] * 6] * 12
+            self.last = [[0] * 6] * mp.cpu_count()
         elif module_name == "CPU_LOAD":
             self.data = open("/proc/stat", "r")
             self.func = self.CPU_LOAD
@@ -49,22 +54,58 @@ class module():
             time.sleep(next(gen))
 
     def CPU(self):
-        self.data.seek(0)
-        loads = [[float(x) for x in line.split()[1:]] for line in self.data.readlines(13)[1:]]
+        try:
+            self.data.seek(0)
+            loads = [""]
+            while not loads[-1].startswith("intr"):
+                loads.append(self.data.readline())
+            loads = [[float(x) for x in line.split()[1:]] for line in loads[1:]]
 
-        cl = [x[0]+x[2] for x in loads]
-        ct = [x[0]+x[2]+x[3] for x in loads]
-        ll = [x[0]+x[2] for x in self.last]
-        lt = [x[0]+x[2]+x[3] for x in self.last]
+            cl = [x[0]+x[2] for x in loads]
+            ct = [x[0]+x[2]+x[3] for x in loads]
+            ll = [x[0]+x[2] for x in self.last]
+            lt = [x[0]+x[2]+x[3] for x in self.last]
 
-        cur = [(x-x1)/(t-t1)*100 for x, t, x1, t1 in zip(cl, ct, ll, lt)]
+            cur = [(x-x1)/(t-t1)*100 for x, t, x1, t1 in zip(cl, ct, ll, lt)]
 
-        # Note to self:
-        # Figure out how to distribute the current load for each core into the space given by the parent process
+            # Note to self:
+            # Figure out how to distribute the current load for each core into the space given by the parent process
 
-        # egrep 'cpu[0-9]+' /proc/stat | awk '{usage=($2+$4)*100/($2+$4+$5)} END {print usage }'
-        msg = "\n".join([f"CPU {i}: {x}%" for i, x in enumerate(cur)])
-        self.queue.put(message(msg, self.init_x, self.init_y))
+            cpu_width = math.ceil(math.log10(mp.cpu_count()))
+
+            strs = [f"Core {str(i).rjust(cpu_width, ' ')}: {x:5.1f}%" for i, x in enumerate(cur)]
+
+            # As all the strings are the same length just take the length of the first string
+            slen = len(strs[0])
+
+            max_fit_w = self.prnt_w // slen
+            num_fit_w = max_fit_w
+            for i in range(max_fit_w, 1, -1):
+                if len(strs) // i == len(strs) / i:
+                    num_fit_w = i
+                    break
+
+            vert_pad = self.prnt_h // num_fit_w
+
+            # egrep 'cpu[0-9]+' /proc/stat | awk '{usage=($2+$4)*100/($2+$4+$5)} END {print usage }'
+            msg = "\n".join([f"{' ' * (self.prnt_w % slen)}".join([x for j, x in enumerate(strs) if j % num_fit_w == i]) for i in range(num_fit_w)])
+
+            self.last = loads[:mp.cpu_count()]
+
+            if __name__ == "__main__":
+                pass
+                print (msg)
+                # print (len([f"{' ' * (self.prnt_w % slen)}".join([x for j, x in enumerate(strs) if j % num_fit_w == i]) for i in range(num_fit_w)][0]))
+                # print(f"with the given area you can fit {num_fit_w} horizontally with a vertical padding of {vert_pad}")
+                # print (ratio)
+            else:
+                self.queue.put(message(msg, self.init_x, self.init_y))
+        except BaseException as e:
+            if __name__ == "__main__":
+                print(f"Exception occured: {e}")
+                import pdb; pdb.set_trace()
+            else:
+                self.queue.put(message(f"Exception occured: {e}", typ="log"))
 
     def CPU_LOAD(self):
         """
@@ -81,11 +122,36 @@ class module():
             ll = self.last[0]+self.last[2]
             lt = self.last[0]+self.last[2]+self.last[3]
 
-            cur = round((cl - ll) / (ct - lt) * (self.scr_h - 2 * self.init_y))
+            cur = (cl - ll) / (ct - lt) * self.prnt_h
+            full = '█' * int(cur)
 
-            self.history.append(f"{'|' * cur}{' ' * ((self.scr_h - 2 * self.init_y) - cur)}")
+            lst = [0, 1/8, 2/8, 3/8/ 4/8, 5/8, 6/8, 7/8]
+            # rem = [' ', '▁', '▂', '▃', '▄', '▅', '▆', '▇'][min(range(8), key = lambda i: abs(lst[i]-(cur - int(cur))))]
 
-            if len(self.history) > (self.scr_w - (self.init_x * 2)):
+            tmp = cur - int(cur)
+
+            rem = " "
+
+            # TODO: Figure out how to remove the branching from this section as it decreases the performance drastically
+
+            # if tmp > 7/8:
+            #     rem = 
+            # elif tmp > 6/8:
+            #     rem = 
+            # elif tmp > 5/8:
+            #     rem = 
+            # elif tmp > 4/8:
+            #     rem = 
+            # elif tmp > 3/8:
+            #     rem = 
+            # elif tmp > 2/8:
+            #     rem = 
+            # elif tmp > 1/8:
+            #     rem = 
+
+            self.history.append(f"{full}{rem}".ljust(self.prnt_h, " "))
+
+            if len(self.history) > self.prnt_w:
                 self.history.pop(0)
 
             msg = "\n".join(reversed(["".join(x) for x in zip(*self.history)]))
@@ -99,6 +165,7 @@ class module():
         except BaseException as e:
             if __name__ == "__main__":
                 print(f"Exception occured: {e}")
+                import pdb; pdb.set_trace()
             else:
                 self.queue.put(message(f"Exception occured: {e}", typ="log"))
 
@@ -111,4 +178,4 @@ class module():
 
 if __name__ == "__main__":
     tmp_q = queue.Queue()
-    module("CPU_LOAD", tmp_q, 10, 10, False, 2)
+    module("CPU_LOAD", tmp_q, 80, 50, False, 10)

@@ -35,7 +35,7 @@
                 "name": "A",
                 "module": "RAM",
                 "frequency": 10,
-                "delta": 0.2
+                "delta": 0.7
               },
               {
                 "name": "B",

@@ -6,7 +6,7 @@ import sched
 import time
 from typing import Iterable, Union
 
-size_list = ["k", "M", "G", "T", "P"]
+size_list = ["B", "k", "M", "G", "T", "P"]
 
 class message():
     def __init__(self, message: str, x: int = 0, y: int = 0, typ: str = "msg") -> None:
@@ -192,26 +192,26 @@ class module():
             self.data.seek(0)
 
             loads = []
-            for i in range(2):
+            for i in range(3):
                 loads.append([float(x) if j % 2 == 0 else x for j, x in enumerate(self.data.readline().split()[1:])])
 
-            cur = loads[1][0] / loads[0][0]
+            usage = loads[0][0] - loads[2][0] * 1000 ** (size_list.index(loads[0][1][0]) - size_list.index(loads[2][1][0]))
+            cur = usage / loads[0][0] * 100
 
-            free_sz = loads[1][1][0]
-            total_sz = loads[0][1][0]
+            ui = size_list.index(loads[2][1][0])
+            ui += math.floor(math.log10(usage)/3)
+            usage /= 1000 ** (ui-size_list.index(loads[2][1][0]))
 
-            fi = math.floor(math.log10(loads[1][0])/3)
-            loads[1][0] /= 1000 ** fi
-
-            ti = math.floor(math.log10(loads[0][0])/3)
-            loads[0][0] /= 1000 ** fi
+            ti = size_list.index(loads[0][1][0])
+            ti += math.floor(math.log10(loads[0][0])/3)
+            loads[0][0] /= 1000 ** (ti-size_list.index(loads[0][1][0]))
 
             size_w = math.ceil(math.log10(loads[0][0])) + 3
 
             total = round(loads[0][0], 2)
-            free = round(loads[1][0], 2)
+            used = round(usage, 2)
 
-            strs = f"RAM: {cur:5.1}% {str(free).rjust(size_w)} {size_list[fi]}B / {str(total).rjust(size_w)} {size_list[ti]}B"
+            strs = f"RAM: {cur:5.1f}% {str(used).rjust(size_w)} {size_list[ui]}B / {str(total).rjust(size_w)} {size_list[ti]}B"
 
             # Horizontal centering is already computed since there is only one string
 
@@ -224,9 +224,8 @@ class module():
             msg = "".join(["\n"] * top_pad + [strs.center(self.prnt_w)] + ["\n"] * bot_pad)
 
             if __name__ == "__main__":
-                print (msg,top_pad,bot_pad)
+                print (msg)
             else:
-                # + f"\nThe size of the screen is ({self.scr_w}, {self.scr_h})\nVertical padding({top_pad}, {bot_pad})"
                 self.queue.put(message(msg, self.init_x, self.init_y))
         except BaseException as e:
             if __name__ == "__main__":
@@ -240,10 +239,11 @@ class module():
             self.data.seek(0)
 
             loads = []
-            for i in range(2):
+            for i in range(3):
                 loads.append([float(x) if j % 2 == 0 else x for j, x in enumerate(self.data.readline().split()[1:])])
 
-            cur = math.modf(loads[1][0] / loads[0][0] * self.prnt_h)
+            usage = loads[0][0] - loads[2][0] * 1000 ** (size_list.index(loads[0][1][0]) - size_list.index(loads[2][1][0]))
+            cur = math.modf(usage / loads[0][0] * self.prnt_h)
             full = '█' * int(cur[1])
 
             self.history.append(f"{full}".ljust(self.prnt_h, " "))
@@ -287,4 +287,4 @@ class module():
 
 if __name__ == "__main__":
     tmp_q = queue.Queue()
-    module("RAM_LOAD", tmp_q, 64, 58, False, 1)
+    module("RAM_LOAD", tmp_q, 30, 30, False, 1)

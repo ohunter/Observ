@@ -6,6 +6,7 @@ import sched
 import time
 from typing import Iterable, Union
 
+size_list = ["k", "M", "G", "T", "P"]
 
 class message():
     def __init__(self, message: str, x: int = 0, y: int = 0, typ: str = "msg") -> None:
@@ -45,6 +46,7 @@ class module():
         elif module_name == "RAM_LOAD":
             self.data = open("/proc/meminfo", "r")
             self.func = self.RAM_LOAD
+            self.history = [" " * self.prnt_h] * self.prnt_w
 
         self.run(rate, self.func)
 
@@ -151,19 +153,19 @@ class module():
             # TODO: Figure out how to remove the branching from this section as it decreases the performance drastically
 
             # if tmp > 7/8:
-            #     rem = 
+            #     rem =
             # elif tmp > 6/8:
-            #     rem = 
+            #     rem =
             # elif tmp > 5/8:
-            #     rem = 
+            #     rem =
             # elif tmp > 4/8:
-            #     rem = 
+            #     rem =
             # elif tmp > 3/8:
-            #     rem = 
+            #     rem =
             # elif tmp > 2/8:
-            #     rem = 
+            #     rem =
             # elif tmp > 1/8:
-            #     rem = 
+            #     rem =
 
             self.history.append(f"{full}".ljust(self.prnt_h, " "))
 
@@ -189,37 +191,81 @@ class module():
         try:
             self.data.seek(0)
 
-            """
-            FUNCTION BODY GOES HERE
-            """
+            loads = []
+            for i in range(2):
+                loads.append([float(x) if j % 2 == 0 else x for j, x in enumerate(self.data.readline().split()[1:])])
+
+            cur = loads[1][0] / loads[0][0]
+
+            free_sz = loads[1][1][0]
+            total_sz = loads[0][1][0]
+
+            fi = 0
+            while loads[1][0] / 1000 > 1:
+                loads[1][0] /= 1000
+                fi += 1
+
+            ti = 0
+            while loads[0][0] / 1000 > 1:
+                loads[0][0] /= 1000
+                ti += 1
+
+            size_w = math.ceil(math.log10(loads[0][0])) + 3
+
+            total = round(loads[0][0], 2)
+            free = round(loads[1][0], 2)
+
+            strs = f"RAM: {cur:5.1}% {str(free).rjust(size_w)} {size_list[fi]}B / {str(total).rjust(size_w)} {size_list[ti]}B"
+
+            # Horizontal centering is already computed since there is only one string
+
+            # Vertical centering
+
+            vert_pad = self.prnt_h - 1
+            top_pad = vert_pad // 2
+            bot_pad = vert_pad - top_pad
+
+            msg = "".join(["\n"] * top_pad + [strs.center(self.prnt_w)] + ["\n"] * bot_pad)
 
             if __name__ == "__main__":
-                pass
+                print (msg,top_pad,bot_pad)
             else:
-                pass
+                # + f"\nThe size of the screen is ({self.scr_w}, {self.scr_h})\nVertical padding({top_pad}, {bot_pad})"
+                self.queue.put(message(msg, self.init_x, self.init_y))
         except BaseException as e:
             if __name__ == "__main__":
+                print(f"Exception occured: {e}")
                 import pdb; pdb.set_trace()
             else:
-                pass
+                self.queue.put(message(f"Exception occured: {e}", typ="log"))
 
     def RAM_LOAD(self):
         try:
             self.data.seek(0)
 
-            """
-            FUNCTION BODY GOES HERE
-            """
+            loads = []
+            for i in range(2):
+                loads.append([float(x) if j % 2 == 0 else x for j, x in enumerate(self.data.readline().split()[1:])])
 
+            cur = math.modf(loads[1][0] / loads[0][0] * self.prnt_h)
+            full = '█' * int(cur[1])
+
+            self.history.append(f"{full}".ljust(self.prnt_h, " "))
+
+            if len(self.history) > self.prnt_w:
+                del self.history[0]
+
+            msg = "\n".join(reversed(["".join(x) for x in zip(*self.history)]))
             if __name__ == "__main__":
-                pass
+                print (msg)
             else:
-                pass
+                self.queue.put(message(msg, self.init_x, self.init_y))
         except BaseException as e:
             if __name__ == "__main__":
+                print(f"Exception occured: {e}")
                 import pdb; pdb.set_trace()
             else:
-                pass
+                self.queue.put(message(f"Exception occured: {e}", typ="log"))
 
     def HDD(self):
         try:
@@ -229,17 +275,20 @@ class module():
             FUNCTION BODY GOES HERE
             """
 
+            msg = ""
+
             if __name__ == "__main__":
-                pass
+                print (msg)
             else:
-                pass
+                self.queue.put(message(msg, self.init_x, self.init_y))
         except BaseException as e:
             if __name__ == "__main__":
+                print(f"Exception occured: {e}")
                 import pdb; pdb.set_trace()
             else:
-                pass
+                self.queue.put(message(f"Exception occured: {e}", typ="log"))
 
 
 if __name__ == "__main__":
     tmp_q = queue.Queue()
-    module("CPU_LOAD", tmp_q, 64, 58, False, 1)
+    module("RAM_LOAD", tmp_q, 64, 58, False, 1)

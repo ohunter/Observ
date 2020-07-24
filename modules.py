@@ -26,17 +26,19 @@ class module():
         self.prnt_w = self.scr_w - 2 * self.init_x
         self.prnt_h = self.scr_h - 2 * self.init_y
 
-        self.history = []
-
         # Open the file to read before the function is called to avoid opening a file every call
         if module_name == "CPU":
             self.data = open("/proc/stat", "r")
             self.func = self.CPU
             self.last = [[0] * 6] * mp.cpu_count()
+
+            # The minimal possible length of a message in this module
+            assert self.prnt_w > 15, "Printable width is less than the minimal print width"
         elif module_name == "CPU_LOAD":
             self.data = open("/proc/stat", "r")
             self.func = self.CPU_LOAD
             self.last = [0] * 6
+            self.history = [" " * self.prnt_h] * self.prnt_w
 
         self.run(rate, self.func)
 
@@ -68,12 +70,9 @@ class module():
 
             cur = [(x-x1)/(t-t1)*100 for x, t, x1, t1 in zip(cl, ct, ll, lt)]
 
-            # Note to self:
-            # Figure out how to distribute the current load for each core into the space given by the parent process
-
             cpu_width = math.ceil(math.log10(mp.cpu_count()))
 
-            strs = [f"Core {str(i).rjust(cpu_width, ' ')}: {x:5.1f}%" for i, x in enumerate(cur)]
+            strs = [f"Core {str(i).rjust(cpu_width, ' ')}: {x:5.1f}% " for i, x in enumerate(cur)]
 
             # As all the strings are the same length just take the length of the first string
             slen = len(strs[0])
@@ -85,19 +84,29 @@ class module():
                     num_fit_w = i
                     break
 
-            vert_pad = self.prnt_h // num_fit_w
+            # Horizontal centering
 
+            horz_rem = self.prnt_w - num_fit_w * slen
+            horz_pad = horz_rem // num_fit_w
+
+            # Vertical centering
+
+            vert_pad = self.prnt_h // (len(strs) // num_fit_w)
+            top_pad = vert_pad // 2
+            bot_pad = vert_pad - top_pad
+            tmp = []
+
+            for s in ["".join([x.center(slen + horz_pad) for j, x in enumerate(strs) if j % (len(strs) // num_fit_w) == i]) for i in range(len(strs) // num_fit_w)]:
+                # assert len(s) <= self.prnt_w
+                tmp.extend(["\n"] * top_pad)
+                tmp.append(s)
+                tmp.extend(["\n"] * bot_pad)
             # egrep 'cpu[0-9]+' /proc/stat | awk '{usage=($2+$4)*100/($2+$4+$5)} END {print usage }'
-            msg = "\n".join([f"{' ' * (self.prnt_w % slen)}".join([x for j, x in enumerate(strs) if j % num_fit_w == i]) for i in range(num_fit_w)])
-
+            msg = "".join(tmp)
             self.last = loads[:mp.cpu_count()]
 
             if __name__ == "__main__":
-                pass
                 print (msg)
-                # print (len([f"{' ' * (self.prnt_w % slen)}".join([x for j, x in enumerate(strs) if j % num_fit_w == i]) for i in range(num_fit_w)][0]))
-                # print(f"with the given area you can fit {num_fit_w} horizontally with a vertical padding of {vert_pad}")
-                # print (ratio)
             else:
                 self.queue.put(message(msg, self.init_x, self.init_y))
         except BaseException as e:
@@ -122,15 +131,16 @@ class module():
             ll = self.last[0]+self.last[2]
             lt = self.last[0]+self.last[2]+self.last[3]
 
-            cur = (cl - ll) / (ct - lt) * self.prnt_h
-            full = '█' * int(cur)
+            # Separate the value into its integer and decimal components
+            cur = math.modf((cl - ll) / (ct - lt) * self.prnt_h)
+            full = '█' * int(cur[1])
 
-            lst = [0, 1/8, 2/8, 3/8/ 4/8, 5/8, 6/8, 7/8]
+            # lst = [0, 1/8, 2/8, 3/8/ 4/8, 5/8, 6/8, 7/8]
             # rem = [' ', '▁', '▂', '▃', '▄', '▅', '▆', '▇'][min(range(8), key = lambda i: abs(lst[i]-(cur - int(cur))))]
 
-            tmp = cur - int(cur)
+            # tmp = cur - int(cur)
 
-            rem = " "
+            # rem = " "
 
             # TODO: Figure out how to remove the branching from this section as it decreases the performance drastically
 
@@ -149,10 +159,10 @@ class module():
             # elif tmp > 1/8:
             #     rem = 
 
-            self.history.append(f"{full}{rem}".ljust(self.prnt_h, " "))
+            self.history.append(f"{full}".ljust(self.prnt_h, " "))
 
             if len(self.history) > self.prnt_w:
-                self.history.pop(0)
+                del self.history[0]
 
             msg = "\n".join(reversed(["".join(x) for x in zip(*self.history)]))
 
@@ -178,4 +188,4 @@ class module():
 
 if __name__ == "__main__":
     tmp_q = queue.Queue()
-    module("CPU_LOAD", tmp_q, 80, 50, False, 10)
+    module("CPU_LOAD", tmp_q, 64, 58, False, 1)

@@ -7,6 +7,7 @@
       "screens": [
         {
           "name": "A",
+          "delta": 0.3,
           "subdivisions": {
             "type": "tiled",
             "orientation": "horizontal",
@@ -44,6 +45,11 @@
               }
             ]
           }
+        },
+        {
+          "name": "D",
+          "delta": 0.4,
+          "module": "SWAP"
         }
       ]
     }

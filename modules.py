@@ -39,6 +39,12 @@ class module():
             self.func = self.CPU_LOAD
             self.last = [0] * 6
             self.history = [" " * self.prnt_h] * self.prnt_w
+        elif module_name == "RAM":
+            self.data = open("/proc/meminfo", "r")
+            self.func = self.RAM
+        elif module_name == "RAM_LOAD":
+            self.data = open("/proc/meminfo", "r")
+            self.func = self.RAM_LOAD
 
         self.run(rate, self.func)
 
@@ -180,10 +186,58 @@ class module():
                 self.queue.put(message(f"Exception occured: {e}", typ="log"))
 
     def RAM(self):
-        pass
+        try:
+            self.data.seek(0)
+
+            """
+            FUNCTION BODY GOES HERE
+            """
+
+            if __name__ == "__main__":
+                pass
+            else:
+                pass
+        except BaseException as e:
+            if __name__ == "__main__":
+                import pdb; pdb.set_trace()
+            else:
+                pass
+
+    def RAM_LOAD(self):
+        try:
+            self.data.seek(0)
+
+            """
+            FUNCTION BODY GOES HERE
+            """
+
+            if __name__ == "__main__":
+                pass
+            else:
+                pass
+        except BaseException as e:
+            if __name__ == "__main__":
+                import pdb; pdb.set_trace()
+            else:
+                pass
 
     def HDD(self):
-        pass
+        try:
+            self.data.seek(0)
+
+            """
+            FUNCTION BODY GOES HERE
+            """
+
+            if __name__ == "__main__":
+                pass
+            else:
+                pass
+        except BaseException as e:
+            if __name__ == "__main__":
+                import pdb; pdb.set_trace()
+            else:
+                pass
 
 
 if __name__ == "__main__":

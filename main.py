@@ -115,11 +115,13 @@ class screen():
                         )
                         cur_x += cur_d
             else:
+                # Placeholder for tabbed sections
                 raise NotImplementedError
         else:
 
             # Note to self:
             # Consider using a set of named Process objects in order to avoid duplicate system processes performing the same code
+            # If this is to be done, there needs to be a non-destructive method for getting the messages
 
             logging.debug(f"Starting sub-process with target: {node.module}")
             self.q = mp.Queue()
@@ -128,11 +130,11 @@ class screen():
 
         self.window.refresh()
 
-    def update_screen(self) -> bool:
+    def update_screen(self, stdscr) -> bool:
         try:
             logging.debug(f"Updating window in region ({self.bounds[0]}, {self.bounds[1]}) - ({self.bounds[2]}, {self.bounds[3]})")
             if self.sub_windows:
-                return any([scr.update_screen() for scr in self.sub_windows])
+                return any([scr.update_screen(stdscr) for scr in self.sub_windows])
             else:
                 if not self.q.empty():
 
@@ -156,12 +158,16 @@ class screen():
                         return True
                 return False
         except BaseException as e:
-            curses.savetty()
+            curses.nocbreak()
+            stdscr.keypad(False)
             curses.echo()
+            curses.curs_set(True)
+            curses.endwin()
+            print (e)
             import pdb; pdb.set_trace()
-            curses.resetty()
 
 def main(stdscr, args):
+    curses.curs_set(False)
     term_height, term_width = stdscr.getmaxyx()
 
     stdscr.nodelay(True)
@@ -200,7 +206,7 @@ def main(stdscr, args):
         except BaseException:
             pass
 
-        if screens.update_screen():
+        if screens.update_screen(stdscr):
             curses.doupdate()
 
 if __name__ == "__main__":

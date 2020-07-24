@@ -7,9 +7,23 @@
       "screens": [
         {
           "name": "A",
-          "delta": 0.3,
-          "module": "CPU",
-          "refresh": 2
+          "subdivisions": {
+            "type": "tiled",
+            "orientation": "horizontal",
+            "screens": [
+              {
+                "name": "C",
+                "module": "CPU",
+                "frequency": 10,
+                "delta": 0.2
+              },
+              {
+                "name": "C",
+                "module": "CPU_LOAD",
+                "frequency": 10
+              }
+            ]
+          }
         },
         {
           "name": "B",
@@ -18,13 +32,15 @@
             "orientation": "horizontal",
             "screens": [
               {
-                "name": "C",
-                "module": "RAM"
+                "name": "A",
+                "module": "RAM",
+                "frequency": 10,
+                "delta": 0.2
               },
               {
-                "name": "D",
-                "module": "HDD",
-                "refresh": 0.3
+                "name": "B",
+                "module": "RAM_LOAD",
+                "frequency": 10
               }
             ]
           }

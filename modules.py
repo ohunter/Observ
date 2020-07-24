@@ -47,6 +47,10 @@ class module():
             self.data = open("/proc/meminfo", "r")
             self.func = self.RAM_LOAD
             self.history = [" " * self.prnt_h] * self.prnt_w
+        elif module_name == "SWAP":
+            self.data = open("/proc/meminfo", "r")
+            self.func = self.SWAP
+
 
         self.run(rate, self.func)
 
@@ -263,6 +267,52 @@ class module():
             else:
                 self.queue.put(message(f"Exception occured: {e}", typ="log"))
 
+    def SWAP(self):
+        try:
+            self.data.seek(0)
+
+            loads = []
+            for i in range(17):
+                loads.append([float(x) if j % 2 == 0 else x for j, x in enumerate(self.data.readline().split()[1:])])
+            loads = loads[15:]
+            cur = loads[1][0] / loads[0][0] * 100
+
+            ui = size_list.index(loads[1][1][0])
+            ui += math.floor(math.log10(max(1, loads[1][0]))/3)
+            loads[1][0] /= 1000 ** (ui-size_list.index(loads[1][1][0]))
+
+            ti = size_list.index(loads[0][1][0])
+            ti += math.floor(math.log10(loads[0][0])/3)
+            loads[0][0] /= 1000 ** (ti-size_list.index(loads[0][1][0]))
+
+            size_w = math.ceil(math.log10(loads[0][0])) + 3
+
+            total = round(loads[0][0], 2)
+            used = round(loads[1][0], 2)
+
+            strs = f"SWAP: {cur:5.1f}% {str(used).rjust(size_w)} {size_list[ui]}B / {str(total).rjust(size_w)} {size_list[ti]}B"
+
+            # Horizontal centering is already computed since there is only one string
+
+            # Vertical centering
+
+            vert_pad = self.prnt_h - 1
+            top_pad = vert_pad // 2
+            bot_pad = vert_pad - top_pad
+
+            msg = "".join(["\n"] * top_pad + [strs.center(self.prnt_w)] + ["\n"] * bot_pad)
+
+            if __name__ == "__main__":
+                print (msg)
+            else:
+                self.queue.put(message(msg, self.init_x, self.init_y))
+        except BaseException as e:
+            if __name__ == "__main__":
+                print(f"Exception occured: {e}")
+                import pdb; pdb.set_trace()
+            else:
+                self.queue.put(message(f"Exception occured: {e}", typ="log"))
+
     def HDD(self):
         try:
             self.data.seek(0)
@@ -287,4 +337,4 @@ class module():
 
 if __name__ == "__main__":
     tmp_q = queue.Queue()
-    module("RAM_LOAD", tmp_q, 30, 30, False, 1)
+    module("SWAP", tmp_q, 30, 30, False, 1)

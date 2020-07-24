@@ -200,15 +200,11 @@ class module():
             free_sz = loads[1][1][0]
             total_sz = loads[0][1][0]
 
-            fi = 0
-            while loads[1][0] / 1000 > 1:
-                loads[1][0] /= 1000
-                fi += 1
+            fi = math.floor(math.log10(loads[1][0])/3)
+            loads[1][0] /= 1000 ** fi
 
-            ti = 0
-            while loads[0][0] / 1000 > 1:
-                loads[0][0] /= 1000
-                ti += 1
+            ti = math.floor(math.log10(loads[0][0])/3)
+            loads[0][0] /= 1000 ** fi
 
             size_w = math.ceil(math.log10(loads[0][0])) + 3
 

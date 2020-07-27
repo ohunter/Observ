@@ -50,6 +50,9 @@ class module():
         elif module_name == "SWAP":
             self.data = open("/proc/meminfo", "r")
             self.func = self.SWAP
+        elif module_name == "HDD":
+            self.data = open("/proc/diskstats", "r")
+            self.func = self.HDD
 
 
         self.run(rate, self.func)
@@ -316,15 +319,20 @@ class module():
     def HDD(self):
         try:
             self.data.seek(0)
+            loads = [[float(x) if i != 2 else x for i, x in enumerate(line.split())] for line in self.data.readlines()]
 
-            """
-            FUNCTION BODY GOES HERE
-            """
+            devs = [line[2] for line in loads]
+            reads = [line[3] for line in loads]
+            total_read_time = [line[6] for line in loads]
+            writes = [line[7] for line in loads]
+            total_write_time = [line[10] for line in loads]
 
-            msg = ""
+
+            msg = "\n".join([f"{dev.ljust(max([len(x) for x in devs]))} : Average Read Time: {trt/max(1, read):.2f} ms | Average Write Time: {twt/max(1, write):.2f} ms" for dev, read, trt, write, twt in zip(devs, reads, total_read_time, writes, total_write_time)])
 
             if __name__ == "__main__":
                 print (msg)
+                pass
             else:
                 self.queue.put(message(msg, self.init_x, self.init_y))
         except BaseException as e:
@@ -334,7 +342,18 @@ class module():
             else:
                 self.queue.put(message(f"Exception occured: {e}", typ="log"))
 
+    """
+    - GPU Monitoring
+        - Intel
+        - Nvidia
+        - AMD
+    - Network Activity
+        - Wifi
+        - Wired
+    - Disk usage
+    - Thermals
+    """
 
 if __name__ == "__main__":
     tmp_q = queue.Queue()
-    module("SWAP", tmp_q, 30, 30, False, 1)
+    module("HDD", tmp_q, 58, 30, False, 1)

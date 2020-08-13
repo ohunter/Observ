@@ -13,7 +13,7 @@ active_border =     ["━", "━", "┃", "┃", "┏", "┓", "┗", "┛"]
 passive_border =    ["─", "─", "|", "|", "┌", "┐", "└", "┘"]
 
 # Note: Not a great implementation as it sort of assumes that the border will be made up of UTC-8 characters and that the title wont
-def _overlay(s1, s2, char=" "):
+def _overlay(s1: str, s2: str, char=" ") -> str:
     return "".join([min(x, y) if min(x,y) != char else max(x,y) for x, y in zip(s1, s2)])
 
 class tile():
@@ -33,7 +33,7 @@ class tile():
     def __contains__(self, position: tuple) -> bool:
         return position[0] >= self.origin[0] and position[0] <= self.offset[0] and position[1] >= self.origin[1] and position[1] <= self.offset[1]
 
-    def render(self, term) -> None:
+    def render(self, term: bl.Terminal) -> None:
         start_pos = (round(self.origin[0] * term.width), round(self.origin[1] * term.height))
         end_pos = (round(self.offset[0] * term.width), round(self.offset[1] * term.height))
 
@@ -57,11 +57,11 @@ class tile():
         with term.location(*start_pos):
             print (top + middle * displacement[1] + bot, end="")
 
-    def move(self, delta: tuple):
+    def move(self, delta: tuple) -> None:
         self.origin = (self.origin[0] + delta[0], self.origin[1] + delta[1])
         self.offset = (self.offset[0] + delta[0], self.offset[1] + delta[1])
 
-    def scale(self, scale: Union[tuple, float]):
+    def scale(self, scale: Union[tuple, float]) -> None:
         if isinstance(scale, tuple):
             self.origin = (scale[0] * self.origin[0], scale[1] * self.origin[1])
             self.offset = (scale[0] * self.offset[0], scale[1] * self.offset[1])
@@ -69,8 +69,11 @@ class tile():
             self.origin = (scale * self.origin[0], scale * self.origin[1])
             self.offset = (scale * self.offset[0], scale * self.offset[1])
 
+    def base_str(self) -> str:
+        return f"{type(self)} @ {self.origin} -> {self.offset}"
+
     @staticmethod
-    def from_conf(conf) -> list:
+    def from_conf(conf: dict) -> tile:
         root = None
 
         if "partitions" in conf:
@@ -101,22 +104,33 @@ class split(tile):
         for x in self.sections:
             x.render(term)
 
-    def scale(self, scale: Union[tuple, float]):
+    def move(self, delta: tuple) -> None:
+        super(split, self).move(delta)
+
+        for t in self.sections:
+            t.move(delta)
+
+    def scale(self, scale: Union[tuple, float]) -> None:
         super(split, self).scale(scale)
 
         if isinstance(scale, tuple):
             if isinstance(self, v_split):
-                self.splits = [s*scale[0] for s in self.splits]
-            elif isinstance(self, h_split):
                 self.splits = [s*scale[1] for s in self.splits]
+            elif isinstance(self, h_split):
+                self.splits = [s*scale[0] for s in self.splits]
 
             for t in self.sections:
                 t.scale(scale)
         else:
             raise NotImplementedError
 
+    def __str__(self) -> str:
+        strs = [f"{self.base_str()} | splits: {self.splits}"]
+        strs.extend([str(x) for x in self.sections])
+        return "\n".join(strs)
+
     @staticmethod
-    def from_conf(conf: dict) -> list:
+    def from_conf(conf: dict) -> tile:
         tiles = []
 
         for s in conf["screens"]:
@@ -136,7 +150,7 @@ class tabbed(tile):
         pass
 
     @staticmethod
-    def from_conf(conf: dict) -> list:
+    def from_conf(conf: dict) -> tile:
         pass
 
 class h_split(split):
@@ -161,8 +175,11 @@ class line_tile(tile):
         with term.location(x, y):
             print(self.text)
 
+    def __str__(self) -> str:
+        return f"{self.base_str()} | text: {self.text}"
+
     @staticmethod
-    def from_conf(conf: dict) -> list:
+    def from_conf(conf: dict) -> tile:
         return line_tile(conf["text"], (0, 0), (1,1), conf.get("border"), conf.get("title"))
 
 class text_tile(tile):
@@ -178,7 +195,7 @@ class text_tile(tile):
         pass
 
     @staticmethod
-    def from_conf(conf: dict) -> list:
+    def from_conf(conf: dict) -> tile:
         return text_tile(conf["text"], (0, 0), (1,1), conf.get("border"), conf.get("title"))
 
 tile_dict = {

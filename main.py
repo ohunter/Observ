@@ -20,9 +20,6 @@ class screen():
     def __init__(self, conf) -> None:
         self.term = bl.Terminal()
         self.tiles = ob.tile.from_conf(conf["screen"])
-
-        print(self.tiles)
-
     def run(self):
         with self.term.fullscreen(), self.term.cbreak(), self.term.hidden_cursor():
             while 1:

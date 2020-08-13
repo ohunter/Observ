@@ -38,16 +38,17 @@ class tile():
         end_pos = (round(self.offset[0] * term.width), round(self.offset[1] * term.height))
 
         displacement = (end_pos[0] - start_pos[0] - 2, end_pos[1] - start_pos[1] - 2)
-        reset = term.move_down(1) + term.move_left(displacement[0] + 2)
+        reset = term.move_left(displacement[0] + 2) + term.move_down(1)
 
-        top    = ""
-        middle = ""
-        bot    = ""
+        top:    str = ""
+        middle: str = ""
+        bot:    str = ""
 
         if self.border:
             top = self.border[4] + self.border[0] * displacement[0] + self.border[5]
-            middle = self.border[2] + term.move_right(displacement[0]) + self.border[3] + reset
+            middle = self.border[2] + term.move_right(displacement[0]) + self.border[3]
             bot = self.border[6] + self.border[1] * displacement[0] + self.border[7]
+
         if self.title:
             top = _overlay(top, self.title.center(displacement[0] + 2))
 
@@ -55,7 +56,7 @@ class tile():
             top += reset
 
         with term.location(*start_pos):
-            print (top + middle * displacement[1] + bot, end="")
+            print (top + "".join([middle, reset] * displacement[1]) + bot, end="")
 
     def move(self, delta: tuple) -> None:
         self.origin = (self.origin[0] + delta[0], self.origin[1] + delta[1])
@@ -197,6 +198,18 @@ class text_tile(tile):
     @staticmethod
     def from_conf(conf: dict):
         return text_tile(conf["text"], (0, 0), (1,1), conf.get("border"), conf.get("title"))
+
+class chart(tile):
+    def __init__(self, func, *args, **kwargs) -> None:
+        super(chart, self).__init__(*args, **kwargs)
+
+        self.func = func
+
+class history(chart):
+    def __init__(self, *args, **kwargs) -> None:
+        super(history, self).__init__(*args, **kwargs)
+
+        self.history = []
 
 tile_dict = {
     "tiled": split,

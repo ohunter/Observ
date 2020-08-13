@@ -1,7 +1,8 @@
 import multiprocessing as mp
+from select import select
 import signal
 import sys
-from itertools import accumulate, chain, islice, tee
+from itertools import accumulate, chain
 from typing import Iterable, Union
 
 import blessed as bl
@@ -22,7 +23,7 @@ class tile():
         self.offset = offset
         self.title = title
 
-        if isinstance(border, bool):
+        if isinstance(border, bool) and border:
             self.border = passive_border
         elif isinstance(border, Iterable):
             assert len(border) == 8, f"Border can only contain 8 elements. The given element contained {len(border)}"
@@ -72,6 +73,14 @@ class tile():
 
     def base_str(self) -> str:
         return f"{type(self)} @ {self.origin} -> {self.offset}"
+
+    def select(self, position: tuple):
+        self.border = active_border
+
+        return self
+
+    def deselect(self) -> None:
+        self.border = passive_border
 
     @staticmethod
     def from_conf(conf: dict):
@@ -125,10 +134,25 @@ class split(tile):
         else:
             raise NotImplementedError
 
+    def select(self, position: tuple):
+        tmp = [k for k, j in [(i, x.deselect()) for i, x in enumerate(self.sections) if position not in x]]
+        return [x.select(position) for i, x in enumerate(self.sections) if i not in tmp][0]
+
+    def deselect(self) -> None:
+        [x.deselect() for x in self.sections]
+
     def __str__(self) -> str:
         strs = [f"{self.base_str()} | splits: {self.splits}"]
         strs.extend([str(x) for x in self.sections])
         return "\n".join(strs)
+
+    def __contains__(self, position: tuple) -> bool:
+        if super(split, self).__contains__(position):
+            for t in self.sections:
+                if position in t:
+                    return t.select(position)
+        else:
+            return False
 
     @staticmethod
     def from_conf(conf: dict):
@@ -210,6 +234,10 @@ class history(chart):
         super(history, self).__init__(*args, **kwargs)
 
         self.history = []
+
+class bars(chart):
+    def __init__(self, bar_titles: Iterable, *args, **kwargs) -> None:
+        super(bars, self).__init__(*args, **kwargs)
 
 tile_dict = {
     "tiled": split,

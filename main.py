@@ -1,6 +1,7 @@
 import argparse
 import logging
 import os
+import sys
 import json
 
 import blessed as bl
@@ -19,13 +20,32 @@ tile_dict = {
 class screen():
     def __init__(self, conf) -> None:
         self.term = bl.Terminal()
-        self.tiles = ob.tile.from_conf(conf["screen"])
+        self.tile = ob.tile.from_conf(conf["screen"])
+        self.active = self.tile.select((0,0))
+        self.actions = {
+            "KEY_UP" : lambda pos, delta: (pos[0], min(0, pos[1] - delta[1] - 0.01)),
+            "KEY_DOWN" : lambda pos, delta: (pos[0], max(1, pos[1] + delta[1] + 0.01)),
+            "KEY_LEFT" : lambda pos, delta: (min(0, pos[0] - delta[0] - 0.01), pos[1]),
+            "KEY_RIGHT" : lambda pos, delta: (max(1, pos[0] + delta[0] + 0.01), pos[1]),
+        }
+
     def run(self):
         with self.term.fullscreen(), self.term.cbreak(), self.term.hidden_cursor():
             while 1:
-                self.tiles.render(self.term)
+                self.tile.render(self.term)
 
-                self.term.inkey()
+                inp = self.term.inkey(timeout=0.1)
+                self.active.text = inp
+                if inp in ["q", "Q"]:
+                    return
+                elif inp.name in ["KEY_UP", "KEY_DOWN", "KEY_LEFT", "KEY_RIGHT"]:
+                    # Note: Once Python 3.9 comes out switch to using `math.nextafter` to figure out the next tile in a direction
+                    pos = (self.active.origin[0] + (self.active.offset[0] - self.active.origin[0])/2, self.active.origin[1] + (self.active.offset[1] - self.active.origin[1])/2)
+                    delta = ((self.active.offset[0] - self.active.origin[0])/2, (self.active.offset[1] - self.active.origin[1])/2)
+                    # import pdb; pdb.set_trace()
+                    self.active = self.tile.select(self.actions[inp.name](pos, delta))
+
+
 
 def parse_config(conf: dict) -> list:
     tiles = []

@@ -1,7 +1,6 @@
 import multiprocessing as mp
-from select import select
-import signal
 import sys
+import threading as th
 from itertools import accumulate, chain
 from typing import Iterable, Union
 
@@ -81,6 +80,16 @@ class tile():
 
     def deselect(self) -> None:
         self.border = passive_border
+
+    def redraw(self, term: bl.Terminal) -> None:
+        start_pos = (round(self.origin[0] * term.width), round(self.origin[1] * term.height))
+        end_pos = (round(self.offset[0] * term.width), round(self.offset[1] * term.height))
+        displacement = (end_pos[0] - start_pos[0], end_pos[1] - start_pos[1])
+
+        filler = " " * displacement[0] + term.move_left(displacement[0])
+
+        with term.location(*start_pos):
+            print(term.move_down(1).join([filler] * displacement[1]))
 
     @staticmethod
     def from_conf(conf: dict):
@@ -234,6 +243,9 @@ class history(chart):
         super(history, self).__init__(*args, **kwargs)
 
         self.history = []
+
+    def render(self, term: bl.Terminal) -> None:
+        super(line_tile, self).render(term)
 
 class bars(chart):
     def __init__(self, bar_titles: Iterable, *args, **kwargs) -> None:

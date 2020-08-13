@@ -1,8 +1,9 @@
 import argparse
 import logging
 import os
-import sys
+import signal
 import json
+from signal import SIGWINCH
 
 import blessed as bl
 import observ as ob
@@ -44,37 +45,6 @@ class screen():
                     delta = ((self.active.offset[0] - self.active.origin[0])/2 + 0.1, (self.active.offset[1] - self.active.origin[1])/2 + 0.1)
                     self.active = self.tile.select(self.actions[inp.name](pos, delta))
 
-
-
-def parse_config(conf: dict) -> list:
-    tiles = []
-
-    s = []
-    ntv = [(conf["screen"], 0)]
-
-    while ntv:
-        cur, depth = ntv.pop()
-
-        if "partitions" in cur:
-            s.append(({k:v for k,v in cur["partitions"].items() if k != "screens"}, depth))
-            ntv += [(x, depth + 1) for x in cur["partitions"]["screens"]]
-        else:
-            s.append((cur, depth))
-
-    for i, (t, d) in enumerate(s[::-1], 1):
-        idx = len(s) - i
-        if "module" in t:
-            tiles.append(tile_dict[t["module"]](t))
-        else:
-            j, k = idx+1, 0
-            while j < len(s) and s[j][1] > d:
-                j += 1
-                k += 1
-
-            meta_tiles[t["type"]](t, reversed(s[idx+1:j]))
-
-    return tiles
-
 def main(args):
     """
     1) Read the configuration data
@@ -83,6 +53,12 @@ def main(args):
     4) Using configuration data, construct the different tiles
     """
     config: dict
+    scr: screen
+
+    def sig_resize(sig, action):
+        scr.tile.redraw(scr.term)
+
+    signal.signal(SIGWINCH, sig_resize)
 
     logging.info("Loading configuration file")
     with open(args.config) as fi:

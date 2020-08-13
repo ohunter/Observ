@@ -42,7 +42,7 @@ class screen():
                     # Note: Once Python 3.9 comes out switch to using `math.nextafter` to figure out the next tile in a direction
                     pos = (self.active.origin[0] + (self.active.offset[0] - self.active.origin[0])/2, self.active.origin[1] + (self.active.offset[1] - self.active.origin[1])/2)
                     delta = ((self.active.offset[0] - self.active.origin[0])/2 + 0.1, (self.active.offset[1] - self.active.origin[1])/2 + 0.1)
-                    self.active = self.tile.select(tself.actions[inp.name](pos, delta)mp)
+                    self.active = self.tile.select(self.actions[inp.name](pos, delta))
 
 
 

@@ -135,7 +135,7 @@ class split(tile):
             raise NotImplementedError
 
     def select(self, position: tuple):
-        tmp = [k for k, j in [(i, x.deselect()) for i, x in enumerate(self.sections) if position not in x]]
+        tmp = [k[0] for k in [(i, x.deselect()) for i, x in enumerate(self.sections) if position not in x]]
         return [x.select(position) for i, x in enumerate(self.sections) if i not in tmp][0]
 
     def deselect(self) -> None:

@@ -23,10 +23,10 @@ class screen():
         self.tile = ob.tile.from_conf(conf["screen"])
         self.active = self.tile.select((0,0))
         self.actions = {
-            "KEY_UP" : lambda pos, delta: (pos[0], min(0, pos[1] - delta[1] - 0.01)),
-            "KEY_DOWN" : lambda pos, delta: (pos[0], max(1, pos[1] + delta[1] + 0.01)),
-            "KEY_LEFT" : lambda pos, delta: (min(0, pos[0] - delta[0] - 0.01), pos[1]),
-            "KEY_RIGHT" : lambda pos, delta: (max(1, pos[0] + delta[0] + 0.01), pos[1]),
+            "KEY_UP" :    lambda pos, delta: (pos[0], max(0, pos[1] - delta[1])),
+            "KEY_DOWN" :  lambda pos, delta: (pos[0], min(1, pos[1] + delta[1])),
+            "KEY_LEFT" :  lambda pos, delta: (max(0, pos[0] - delta[0]), pos[1]),
+            "KEY_RIGHT" : lambda pos, delta: (min(1, pos[0] + delta[0]), pos[1]),
         }
 
     def run(self):
@@ -41,9 +41,8 @@ class screen():
                 elif inp.name in ["KEY_UP", "KEY_DOWN", "KEY_LEFT", "KEY_RIGHT"]:
                     # Note: Once Python 3.9 comes out switch to using `math.nextafter` to figure out the next tile in a direction
                     pos = (self.active.origin[0] + (self.active.offset[0] - self.active.origin[0])/2, self.active.origin[1] + (self.active.offset[1] - self.active.origin[1])/2)
-                    delta = ((self.active.offset[0] - self.active.origin[0])/2, (self.active.offset[1] - self.active.origin[1])/2)
-                    # import pdb; pdb.set_trace()
-                    self.active = self.tile.select(self.actions[inp.name](pos, delta))
+                    delta = ((self.active.offset[0] - self.active.origin[0])/2 + 0.1, (self.active.offset[1] - self.active.origin[1])/2 + 0.1)
+                    self.active = self.tile.select(tself.actions[inp.name](pos, delta)mp)
 
 
 

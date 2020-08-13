@@ -73,7 +73,7 @@ class tile():
         return f"{type(self)} @ {self.origin} -> {self.offset}"
 
     @staticmethod
-    def from_conf(conf: dict) -> tile:
+    def from_conf(conf: dict):
         root = None
 
         if "partitions" in conf:
@@ -130,7 +130,7 @@ class split(tile):
         return "\n".join(strs)
 
     @staticmethod
-    def from_conf(conf: dict) -> tile:
+    def from_conf(conf: dict):
         tiles = []
 
         for s in conf["screens"]:
@@ -150,7 +150,7 @@ class tabbed(tile):
         pass
 
     @staticmethod
-    def from_conf(conf: dict) -> tile:
+    def from_conf(conf: dict):
         pass
 
 class h_split(split):
@@ -179,7 +179,7 @@ class line_tile(tile):
         return f"{self.base_str()} | text: {self.text}"
 
     @staticmethod
-    def from_conf(conf: dict) -> tile:
+    def from_conf(conf: dict):
         return line_tile(conf["text"], (0, 0), (1,1), conf.get("border"), conf.get("title"))
 
 class text_tile(tile):
@@ -195,7 +195,7 @@ class text_tile(tile):
         pass
 
     @staticmethod
-    def from_conf(conf: dict) -> tile:
+    def from_conf(conf: dict):
         return text_tile(conf["text"], (0, 0), (1,1), conf.get("border"), conf.get("title"))
 
 tile_dict = {

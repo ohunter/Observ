@@ -1,213 +1,85 @@
 import argparse
-import curses
-import json
 import logging
-import multiprocessing as mp
 import os
-import sys
+import json
 
-import modules
+import blessed as bl
+import observ as ob
 
-class screen_tree():
-    def __init__(self, root : dict) -> None:
+meta_tiles = {
+    "tiled": ob.split.from_conf,
+    "tabbed": ob.tabbed.from_conf,
+}
 
-        # Assumes that the only node not given a name is the root node
-        self.name : str = root["name"] if "name" in root else "root"
-        # The step across the dimension for the subdivisions given as a percentage
-        self.delta : float = root["delta"] if "delta" in root else -1
-        # The frequency rate of the screen in Hz
-        self.frequency : float = root["frequency"] if "frequency" in root else 1
-        # Whether or not the region will have a border
-        self.border : bool  = root["border"] if "border" in root else True
-        # Defines the module being displayed within the given screen
-        self.module : str = root["module"] if "module" in root else "NONE"
-        # The type of the subdivisions of the screen
-        self.type : str = root["subdivisions"]["type"] if "subdivisions" in root else "tiled"
-        # The orientation of the subdivisions of the screen
-        self.orientation : str = root["subdivisions"]["orientation"] if "subdivisions" in root else "vertical"
-        # How the screen will be subdivided further
-        self.subdivisions = []
-
-        if "subdivisions" in root:
-            self.subdivisions.extend([screen_tree(x) for x in root["subdivisions"]["screens"]])
-
-        d = (1 - sum([x.delta for x in self.subdivisions if x.delta > 0])) / max(1, len([x for x in self.subdivisions if x.delta == -1]))
-        for sub in [x for x in self.subdivisions if x.delta == -1]:
-            sub.delta = d
-
-    def __str__(self) -> str:
-        l = []
-
-        ntv = [(0, self)]
-
-        while ntv:
-            indent, current = ntv[0]
-            l.append(f"{' ' * indent}{current.name} : delta: {current.delta}, frequency: {current.frequency}, border: {current.border}, orientation: {current.orientation}")
-            ntv = [(indent+2, x) for x in current.subdivisions] + ntv[1:]
-
-        return "\n".join(l)
-
-    def validate(self) -> bool:
-        if any([x.delta > 1 for x in self.subdivisions]) or sum([x.delta for x in self.subdivisions]) > 1:
-            return False
-        if self.subdivisions and self.module != "NONE":
-            return False
-
-        return True
-
-    def validate_tree(self) -> bool:
-        ntv = [self]
-
-        while ntv:
-            current = ntv[0]
-            if not current.validate():
-                return False
-            ntv = current.subdivisions + ntv[1:]
-
-        return True
+tile_dict = {
+    "line": ob.line_tile.from_conf,
+    "text": ob.text_tile.from_conf,
+}
 
 class screen():
-    def __init__(self, scr, node: screen_tree, init_x: int, init_y: int, width: int, height: int) -> None:
-        self.super_window = scr
-        try:
-            self.window = scr.subwin(height, width, init_y, init_x)
-        except BaseException as e:
-            self.window = curses.newwin(height, width, init_y, init_x)
-        self.sub_windows = []
+    def __init__(self, conf) -> None:
+        self.term = bl.Terminal()
+        self.tiles = ob.tile.from_conf(conf["screen"])
 
-        self.bounds = (init_x, init_y, init_x + width, init_y + height)
+        print(self.tiles)
 
-        if node.border:
-            self.window.box()
+    def run(self):
+        with self.term.fullscreen(), self.term.cbreak(), self.term.hidden_cursor():
+            while 1:
+                self.tiles.render(self.term)
 
-        logging.debug(f"initializing screen with area: ({init_x}, {init_y})\t({init_x+width}, {init_y+height})")
+                self.term.inkey()
 
-        if node.subdivisions:
-            if node.type == "tiled":
+def parse_config(conf: dict) -> list:
+    tiles = []
 
-                cur_x, cur_y = init_x, init_y
-                cur_d = 0
-                for sub in node.subdivisions:
-                    if node.orientation == "vertical":
-                        cur_d = int(sub.delta * height) if round(sub.delta * height) == int(sub.delta * height) else int(sub.delta * height) + 1
-                        self.sub_windows.append(
-                            screen(
-                                self.window,
-                                sub,
-                                cur_x,
-                                cur_y,
-                                width,
-                                cur_d
-                            )
-                        )
-                        cur_y += cur_d
-                    else:
-                        cur_d = int(sub.delta * width) if round(sub.delta * width) == int(sub.delta * width) else int(sub.delta * width) + 1
-                        self.sub_windows.append(
-                            screen(
-                                self.window,
-                                sub,
-                                cur_x,
-                                cur_y,
-                                cur_d,
-                                height
-                            )
-                        )
-                        cur_x += cur_d
-            else:
-                # Placeholder for tabbed sections
-                raise NotImplementedError
+    s = []
+    ntv = [(conf["screen"], 0)]
+
+    while ntv:
+        cur, depth = ntv.pop()
+
+        if "partitions" in cur:
+            s.append(({k:v for k,v in cur["partitions"].items() if k != "screens"}, depth))
+            ntv += [(x, depth + 1) for x in cur["partitions"]["screens"]]
         else:
+            s.append((cur, depth))
 
-            # Note to self:
-            # Consider using a set of named Process objects in order to avoid duplicate system processes performing the same code
-            # If this is to be done, there needs to be a non-destructive method for getting the messages
+    for i, (t, d) in enumerate(s[::-1], 1):
+        idx = len(s) - i
+        if "module" in t:
+            tiles.append(tile_dict[t["module"]](t))
+        else:
+            j, k = idx+1, 0
+            while j < len(s) and s[j][1] > d:
+                j += 1
+                k += 1
 
-            logging.debug(f"Starting sub-process with target: {node.module}")
-            self.q = mp.Queue()
-            self.proc = mp.Process(target=modules.module, args=(node.module, self.q, width, height, node.border, node.frequency,), daemon=True)
-            self.proc.start()
+            meta_tiles[t["type"]](t, reversed(s[idx+1:j]))
 
-        self.window.refresh()
+    return tiles
 
-    def update_screen(self, stdscr) -> bool:
-        try:
-            logging.debug(f"Updating window in region ({self.bounds[0]}, {self.bounds[1]}) - ({self.bounds[2]}, {self.bounds[3]})")
-            if self.sub_windows:
-                return any([scr.update_screen(stdscr) for scr in self.sub_windows])
-            else:
-                if not self.q.empty():
-
-                    # Note to self:
-                    # Consider using a multiprocessing.sharedctypes.Array object to transport data between the processes.
-                    # At first glance it seems faster than using normal IPC and has the added benefit of not having a scaling memory usage,
-                    # Other benefits may include the ability to better work with the refresh rate option given a module
-
-                    msg : modules.message = self.q.get(False)
-
-                    if msg.type == "log":
-                        logging.debug(msg.content)
-                    else:
-                        logging.debug(f"Recieved message with content: {msg.content}")
-
-                        for y, line in enumerate(msg.content.split("\n"), msg.y):
-                            self.window.addstr(y, msg.x, line)
-
-                        self.window.noutrefresh()
-
-                        return True
-                return False
-        except BaseException as e:
-            curses.nocbreak()
-            stdscr.keypad(False)
-            curses.echo()
-            curses.curs_set(True)
-            curses.endwin()
-            print (e)
-            import pdb; pdb.set_trace()
-
-def main(stdscr, args):
-    curses.curs_set(False)
-    term_height, term_width = stdscr.getmaxyx()
-
-    stdscr.nodelay(True)
-
+def main(args):
+    """
+    1) Read the configuration data
+    2) Create a reduced structure of all the different areas
+    3) Validate that the configuration is correct
+    4) Using configuration data, construct the different tiles
+    """
     config: dict
-    tree: screen_tree
-    screens: screen
 
     logging.info("Loading configuration file")
     with open(args.config) as fi:
         config = json.load(fi)
-        tree = screen_tree(list(config.values())[0])
-        tree.delta = 1
 
-    valid = tree.validate_tree()
-    logging.info(f"Configuration successfully validated: {valid}")
+    scr = screen(config)
 
-    if not valid:
-        logging.error("Invalid configuration file")
-        sys.exit(1)
+    try:
+        scr.run()
+    except BaseException as e:
+        import traceback; traceback.print_exc()
+        import pdb; pdb.set_trace()
 
-    logging.info("Setting up screens")
-    screens = screen(stdscr, tree, 0, 0, term_width, term_height)
-
-    logging.info("Successfully set up screens")
-
-    # Note to self:
-    # Instead of iterating through all the different modules. Use some sort of scheduling so that you only evaluate the modules that you know are gonna be updated every iteration and sleep until the next one.
-    # Each iteration would have to evaluate which modules to check next
-    while 1:
-        try:
-            inp = stdscr.getkey()
-
-            if inp == "q":
-                break
-        except BaseException:
-            pass
-
-        if screens.update_screen(stdscr):
-            curses.doupdate()
 
 if __name__ == "__main__":
 
@@ -257,4 +129,4 @@ if __name__ == "__main__":
     logging.info("Starting application")
     logging.info(f"Using configuration located at {args.config}")
     logging.info(f"Allowing curses to handle terminal setup")
-    curses.wrapper(main, args)
+    main(args)

@@ -3,7 +3,7 @@ import sys
 import math
 import threading as th
 from itertools import accumulate, chain, zip_longest
-from typing import Iterable, Union
+from typing import Iterable, Union, Tuple
 
 import blessed as bl
 
@@ -27,9 +27,9 @@ class tile():
     Args:
 
         Origin:
-            A tuple describing the initial position (as a percentage) for the tile's top left corner
+            A Tuple[float, float] describing the initial position (as a percentage) for the tile's top left corner
         Offset:
-            A tuple describing the final position (as a percentage) for the tile's bottom right
+            A Tuple[float, float] describing the final position (as a percentage) for the tile's bottom right
         Border:
             Bool: If True the tile will use the default border provided by the program, else no border is provided
             Iterable: An iterable containing each of the elements for the borders in the following order: [TOP, BOTTOM, LEFT, RIGHT, TOP LEFT, TOP RIGHT, BOTTOM LEFT, BOTTOM RIGHT]
@@ -37,7 +37,7 @@ class tile():
         Title:
             A string that will be displayed in the top center of the tile
     """
-    def __init__(self, origin: tuple = (0, 0), offset: tuple = (1, 1), border: Union[bool, Iterable, None]=None, title: str = None, *args, **kwargs) -> None:
+    def __init__(self, origin: Tuple[float, float] = (0, 0), offset: Tuple[float, float] = (1, 1), border: Union[bool, Iterable, None]=None, title: str = None, *args, **kwargs) -> None:
         self.origin = origin
         self.offset = offset
         self.title = title
@@ -53,7 +53,7 @@ class tile():
             self.border = None
             self._original_border = None
 
-    def __contains__(self, position: tuple) -> bool:
+    def __contains__(self, position: Tuple[float, float]) -> bool:
         return position[0] >= self.origin[0] and position[0] <= self.offset[0] and position[1] >= self.origin[1] and position[1] <= self.offset[1]
 
     def render(self, term: bl.Terminal) -> None:
@@ -84,18 +84,18 @@ class tile():
         with term.location(*start_pos):
             print (top + "".join([middle, reset] * displacement[1]) + bot, end="")
 
-    def move(self, delta: tuple) -> None:
+    def move(self, delta: Tuple[float, float]) -> None:
         """
         Moves the tile to in the direction of the vector given
         """
         self.origin = (self.origin[0] + delta[0], self.origin[1] + delta[1])
         self.offset = (self.offset[0] + delta[0], self.offset[1] + delta[1])
 
-    def scale(self, scale: Union[tuple, float]) -> None:
+    def scale(self, scale: Union[Tuple[float, float], float]) -> None:
         """
         Scales the tile by the value provided
         """
-        if isinstance(scale, tuple):
+        if isinstance(scale, Tuple):
             self.origin = (scale[0] * self.origin[0], scale[1] * self.origin[1])
             self.offset = (scale[0] * self.offset[0], scale[1] * self.offset[1])
         else:
@@ -105,7 +105,7 @@ class tile():
     def _base_str(self) -> str:
         return f"{type(self)} @ {self.origin} -> {self.offset}"
 
-    def select(self, position: tuple):
+    def select(self, position: Tuple[float, float]):
         """
         Changes the border of the active tile to the the active border
         """
@@ -139,9 +139,9 @@ class tile():
         root = None
 
         if "partitions" in conf:
-            root = tile_dict[conf["partitions"]["type"]].from_conf(conf["partitions"])
+            root = _tile_dict[conf["partitions"]["type"]].from_conf(conf["partitions"])
         else:
-            root = tile_dict[conf["module"]].from_conf(conf)
+            root = _tile_dict[conf["module"]].from_conf(conf)
 
         return root
 
@@ -166,16 +166,16 @@ class split(tile):
         for x in self.sections:
             x.render(term)
 
-    def move(self, delta: tuple) -> None:
+    def move(self, delta: Tuple[float, float]) -> None:
         super(split, self).move(delta)
 
         for t in self.sections:
             t.move(delta)
 
-    def scale(self, scale: Union[tuple, float]) -> None:
+    def scale(self, scale: Union[Tuple[float, float], float]) -> None:
         super(split, self).scale(scale)
 
-        if isinstance(scale, tuple):
+        if isinstance(scale, Tuple):
             if isinstance(self, v_split):
                 self.splits = [s*scale[1] for s in self.splits]
             elif isinstance(self, h_split):
@@ -186,7 +186,7 @@ class split(tile):
         else:
             raise NotImplementedError
 
-    def select(self, position: tuple):
+    def select(self, position: Tuple[float, float]):
         tmp = [k[0] for k in [(i, x.deselect()) for i, x in enumerate(self.sections) if position not in x]]
         return [x.select(position) for i, x in enumerate(self.sections) if i not in tmp][0]
 
@@ -198,7 +198,7 @@ class split(tile):
         strs.extend([str(x) for x in self.sections])
         return "\n".join(strs)
 
-    def __contains__(self, position: tuple) -> bool:
+    def __contains__(self, position: Tuple[float, float]) -> bool:
         if super(split, self).__contains__(position):
             return [t.__contains__(position) for t in self.sections if position in t][0]
         else:
@@ -234,22 +234,22 @@ class tabbed(tile):
         self.active_tab.render(term)
         self.active_tab.title = tmp
 
-    def move(self, delta:tuple) -> None:
+    def move(self, delta:Tuple[float, float]) -> None:
         super(tabbed, self).move(delta)
 
         for t in self.tabs:
             t.move(delta)
 
-    def scale(self, scale: Union[tuple, float]) -> None:
+    def scale(self, scale: Union[Tuple[float, float], float]) -> None:
         super(tabbed, self).scale(scale)
 
-        if isinstance(scale, tuple):
+        if isinstance(scale, Tuple[float, float]):
             for t in self.tabs:
                 t.scale(scale)
         else:
             raise NotImplementedError
 
-    def select(self, position: tuple):
+    def select(self, position: Tuple[float, float]):
         index = self.tabs.index(self.active_tab)
 
         if index == 0:
@@ -269,13 +269,13 @@ class tabbed(tile):
         strs.extend([str(x) for x in self.tabs])
         return "\n".join(strs)
 
-    def __contains__(self, position: tuple) -> bool:
+    def __contains__(self, position: Tuple[float, float]) -> bool:
         if super(tabbed, self).__contains__(position):
             return self.active_tab.__contains__(position)
         else:
             return False
 
-    def _direction(self, position: tuple) -> int:
+    def _direction(self, position: Tuple[float, float]) -> int:
         pass
 
     @staticmethod
@@ -332,37 +332,22 @@ class text_tile(tile):
     def from_conf(conf: dict):
         return text_tile(conf["text"], (0, 0), (1,1), conf.get("border"), conf.get("title"))
 
-class chart(tile):
+class realtime_tile(tile):
     def __init__(self, func, *args, **kwargs) -> None:
-        super(chart, self).__init__(*args, **kwargs)
+        super(realtime_tile, self).__init__(*args, **kwargs)
 
         self.func = func
 
-class line_chart(chart):
-    def __init__(self, legend: Iterable, *args, **kwargs) -> None:
-        super(line_chart, self).__init__(*args, **kwargs)
-
-        self.data = {k: [] for k in legend}
-
-    def render(self, term: bl.Terminal) -> None:
-        area = super(line_chart, self).render(term)
-class history(chart):
-    def __init__(self, *args, **kwargs) -> None:
-        super(history, self).__init__(*args, **kwargs)
-
-        self.history = []
-
-    def render(self, term: bl.Terminal) -> None:
-        super(line_tile, self).render(term)
-
-class bars(chart):
-    def __init__(self, bar_titles: Iterable, *args, **kwargs) -> None:
-        super(bars, self).__init__(*args, **kwargs)
+    
 
 
-tile_dict = {
+_tile_dict = {
     "tiled": split,
     "tabbed": tabbed,
     "line": line_tile,
     "text": text_tile,
+}
+
+_resource_dict = {
+
 }

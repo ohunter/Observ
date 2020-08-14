@@ -21,7 +21,7 @@ tile_dict = {
 class screen():
     def __init__(self, conf) -> None:
         self.term = bl.Terminal()
-        self.tile = ob.tile.from_conf(conf["screen"])
+        self.tile: ob.tile = ob.tile.from_conf(conf["screen"])
         self.active = self.tile.select((0,0))
         self.actions = {
             "KEY_UP" :    lambda pos, delta: (pos[0], max(0, pos[1] - delta[1])),
@@ -45,18 +45,22 @@ class screen():
                     delta = ((self.active.offset[0] - self.active.origin[0])/2 + 0.1, (self.active.offset[1] - self.active.origin[1])/2 + 0.1)
                     self.active = self.tile.select(self.actions[inp.name](pos, delta))
 
+    def redraw(self):
+        self.tile.redraw(self.term)
+
 def main(args):
     """
-    1) Read the configuration data
-    2) Create a reduced structure of all the different areas
-    3) Validate that the configuration is correct
-    4) Using configuration data, construct the different tiles
+    The rough steps for creating the application layout:
+        1) Read the configuration data
+        2) Create a reduced structure of all the different areas
+        3) Validate that the configuration is correct
+        4) Using configuration data, construct the different tiles
     """
     config: dict
     scr: screen
 
     def sig_resize(sig, action):
-        scr.tile.redraw(scr.term)
+        scr.redraw()
 
     signal.signal(SIGWINCH, sig_resize)
 

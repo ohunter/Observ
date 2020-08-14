@@ -1,9 +1,10 @@
-import multiprocessing as mp
-import sys
 import math
+import multiprocessing as mp
+import re
+import sys
 import threading as th
 from itertools import accumulate, chain, zip_longest
-from typing import Iterable, Union, Tuple
+from typing import Any, Callable, Iterable, Mapping, Tuple, Union
 
 import blessed as bl
 
@@ -37,7 +38,7 @@ class tile():
         Title:
             A string that will be displayed in the top center of the tile
     """
-    def __init__(self, origin: Tuple[float, float] = (0, 0), offset: Tuple[float, float] = (1, 1), border: Union[bool, Iterable, None]=None, title: str = None, *args, **kwargs) -> None:
+    def __init__(self, origin: Tuple[float, float] = (0, 0), offset: Tuple[float, float] = (1, 1), border: Union[bool, Iterable[str], None]=None, title: str = None, *args, **kwargs) -> None:
         self.origin = origin
         self.offset = offset
         self.title = title
@@ -83,6 +84,13 @@ class tile():
 
         with term.location(*start_pos):
             print (top + "".join([middle, reset] * displacement[1]) + bot, end="")
+
+        if self.border:
+            return (start_pos[0]-1, start_pos[1]-1), (end_pos[0]-1, end_pos[1]-1)
+        elif self.title:
+            return (start_pos[0], start_pos[1]-1), end_pos
+
+        return start_pos, end_pos
 
     def move(self, delta: Tuple[float, float]) -> None:
         """
@@ -146,7 +154,7 @@ class tile():
         return root
 
 class split(tile):
-    def __init__(self, splits: Union[None, Iterable], sections: Iterable, *args, **kwargs) -> None:
+    def __init__(self, splits: Union[None, Iterable[float]], sections: Iterable[tile], *args, **kwargs) -> None:
         super(split, self).__init__(*args, **kwargs)
 
         assert not splits or len(splits) == len(sections) - 1, f"Expected {len(sections) - 1} split points, but was given {len(splits)}"
@@ -216,7 +224,7 @@ class split(tile):
         return clss(conf.get("splits"), tiles)
 
 class tabbed(tile):
-    def __init__(self, tabs: Iterable, *args, **kwargs) -> None:
+    def __init__(self, tabs: Iterable[tile], *args, **kwargs) -> None:
         super(tabbed, self).__init__(*args, **kwargs)
         self.tabs = tabs
         self.active_tab = self.tabs[0]
@@ -301,9 +309,7 @@ class line_tile(tile):
         self.text = text
 
     def render(self, term: bl.Terminal) -> None:
-        super(line_tile, self).render(term)
-        start_pos = (round(self.origin[0] * term.width), round(self.origin[1] * term.height))
-        end_pos = (round(self.offset[0] * term.width), round(self.offset[1] * term.height))
+        start_pos, end_pos = super(line_tile, self).render(term)
         x = (end_pos[0] - start_pos[0]) // 2 - len(self.text)//2 + start_pos[0]
         y = (end_pos[1] - start_pos[1]) // 2 + start_pos[1]
         with term.location(x, y):
@@ -333,13 +339,40 @@ class text_tile(tile):
         return text_tile(conf["text"], (0, 0), (1,1), conf.get("border"), conf.get("title"))
 
 class realtime_tile(tile):
-    def __init__(self, func, *args, **kwargs) -> None:
+    def __init__(self, func: Callable[[Iterable], None], func_args: Iterable[Any], *args, **kwargs) -> None:
         super(realtime_tile, self).__init__(*args, **kwargs)
 
         self.func = func
+        self.func_args = func_args
 
-    
+        self.thread: th.Thread = None
+        self.lock: th.Event = None
 
+        self.data = None
+
+    def render(self, term: bl.Terminal) -> None:
+        start_pos, end_pos = super(realtime_tile, self).render(term)
+
+    def initiate(self) -> None:
+        started = False
+        if self.func in _thread_dict:
+            self.thread, self.lock, started = _thread_dict[self.func]
+        else:
+            self.lock = th.Event()
+            self.thread = th.Thread(target=self.func, args=chain([self.lock], self.func_args), daemon=True)
+            _thread_dict[self.func] = (self.thread, self.lock, started)
+
+        if not started():
+            self.thread.start()
+            _thread_dict[self.func] = (self.thread, self.lock, started)
+
+    def update(self):
+
+        pass
+
+class rt_line_tile(realtime_tile):
+    def __init__(self, *args, **kwargs) -> None:
+        super(realtime_tile, self).__init__(*args, **kwargs)
 
 _tile_dict = {
     "tiled": split,
@@ -348,6 +381,10 @@ _tile_dict = {
     "text": text_tile,
 }
 
-_resource_dict = {
+_resource_dict:dict[str, str] = {
+
+}
+
+_thread_dict: dict[Callable[[Iterable], None], Tuple[th.Thread, th.Event, bool]] = {
 
 }

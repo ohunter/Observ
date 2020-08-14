@@ -4,6 +4,7 @@ import os
 import signal
 import json
 from signal import SIGWINCH
+from typing import Any, Iterable, Mapping
 
 import blessed as bl
 import observ as ob
@@ -18,11 +19,27 @@ tile_dict = {
     "text": ob.text_tile.from_conf,
 }
 
+class scheduler():
+    def __init__(self, timing: Iterable[float]) -> None:
+        self.timings = sorted(list(set(timing)))
+
+        self.t = 0
+
+    def next_timing(self) -> float:
+        dt = min([x - self.t for x in self.timings if x > self.t])
+        self.t += dt
+        self.t %= max(self.timings)
+        return dt
+
 class screen():
-    def __init__(self, conf) -> None:
+    def __init__(self, conf: Mapping[str, Any]) -> None:
         self.term = bl.Terminal()
+
         self.tile: ob.tile = ob.tile.from_conf(conf["screen"])
         self.active = self.tile.select((0,0))
+
+        self.sched = scheduler(self.tile.timing())
+
         self.actions = {
             "KEY_UP" :    lambda pos, delta: (pos[0], max(0, pos[1] - delta[1])),
             "KEY_DOWN" :  lambda pos, delta: (pos[0], min(1, pos[1] + delta[1])),
@@ -30,13 +47,11 @@ class screen():
             "KEY_RIGHT" : lambda pos, delta: (min(1, pos[0] + delta[0]), pos[1]),
         }
 
-    def run(self):
+    def run(self) -> None:
         with self.term.fullscreen(), self.term.cbreak(), self.term.hidden_cursor():
             while 1:
-                self.tile.render(self.term)
+                inp = self.term.inkey(timeout=self.sched.next_timing())
 
-                inp = self.term.inkey(timeout=0.1)
-                self.active.text = inp
                 if inp in ["q", "Q"]:
                     return
                 elif inp.name in ["KEY_UP", "KEY_DOWN", "KEY_LEFT", "KEY_RIGHT"]:
@@ -45,7 +60,9 @@ class screen():
                     delta = ((self.active.offset[0] - self.active.origin[0])/2 + 0.1, (self.active.offset[1] - self.active.origin[1])/2 + 0.1)
                     self.active = self.tile.select(self.actions[inp.name](pos, delta))
 
-    def redraw(self):
+                self.tile.render(self.term)
+
+    def redraw(self) -> None:
         self.tile.redraw(self.term)
 
 def main(args):

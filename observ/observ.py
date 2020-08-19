@@ -393,7 +393,6 @@ class time_tile(tile):
         y = (end_pos[1] - start_pos[1]) // 2 + start_pos[1]
         with term.location(x, y):
             print(cur)
-            print(self.__str__(), cur, file=open("tiles", 'a'))
 
     @staticmethod
     def from_conf(conf: dict):

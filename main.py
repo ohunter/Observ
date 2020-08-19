@@ -1,10 +1,9 @@
 import argparse
-import itertools
 import json
 import logging
 import os
 import signal
-from itertools import accumulate, chain, zip_longest
+from itertools import chain
 from signal import SIGWINCH
 from typing import Any, Iterable, Mapping, Tuple
 
@@ -139,7 +138,6 @@ def main(args):
     except BaseException as e:
         import traceback; traceback.print_exc()
         import pdb; pdb.set_trace()
-
 
 if __name__ == "__main__":
 

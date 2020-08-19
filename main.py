@@ -25,7 +25,7 @@ class scheduler():
     def __init__(self, timing: Iterable[Tuple[int, ob.tile]]) -> None:
         period = self._find_period([x for x,v in timing])
         steps = [{i/k : v for i in range(1, int(period * k)+1)} for k, v in timing]
-        self.timings = {x:chain([d[x] for d in steps if x in d]) for x in dict.fromkeys(sorted([b for a in steps for b in a]))}
+        self.timings = {x:[d[x] for d in steps if x in d] for x in dict.fromkeys(sorted([b for a in steps for b in a]))}
 
         self.total = 0.0
         self.t = 0.0
@@ -43,7 +43,7 @@ class scheduler():
             self.total += self.dt
             yield self.dt, self.timings.get(self.t, self.timings[max(self.timings)])
 
-    def _factorize(self, val):
+    def _factorize(self, val: int) -> Mapping[int, int]:
         factors = {}
         while val > 1:
             for i in range(2, val+1):
@@ -80,10 +80,10 @@ class screen():
     def __init__(self, conf: Mapping[str, Any]) -> None:
         self.term = bl.Terminal()
 
-        self.tile: ob.tile = ob.tile.from_conf(conf["screen"])
-        self.active = self.tile.select((0,0))
+        self.root: ob.tile = ob.tile.from_conf(conf["screen"])
+        self.active = self.root.select((0,0), self.term)
 
-        self.sched = scheduler(self.tile.timing())
+        self.sched = scheduler(self.root.timing())
 
         self.actions = {
             "KEY_UP" :    lambda pos, delta: (pos[0], max(0, pos[1] - delta[1])),
@@ -103,13 +103,14 @@ class screen():
                     # Note: Once Python 3.9 comes out switch to using `math.nextafter` to figure out the next tile in a direction
                     pos = (self.active.origin[0] + (self.active.offset[0] - self.active.origin[0])/2, self.active.origin[1] + (self.active.offset[1] - self.active.origin[1])/2)
                     delta = ((self.active.offset[0] - self.active.origin[0])/2 + 0.1, (self.active.offset[1] - self.active.origin[1])/2 + 0.1)
-                    self.active = self.tile.select(self.actions[inp.name](pos, delta))
+                    self.active.deselect(self.term)
+                    self.active = self.root.select(self.actions[inp.name](pos, delta), self.term)
 
-                # self.tile.render(self.term)
-                for tile in tiles: tile.render(self.term)
+                for tile in tiles:
+                    tile.render(self.term)
 
     def redraw(self) -> None:
-        self.tile.redraw(self.term)
+        self.root.redraw(self.term)
 
 def main(args):
     """

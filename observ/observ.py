@@ -1,7 +1,5 @@
 import math
 import multiprocessing as mp
-import re
-import sys
 import threading as th
 import time
 from itertools import accumulate, chain, zip_longest
@@ -116,19 +114,21 @@ class tile():
     def _base_str(self) -> str:
         return f"{type(self)} @ {self.origin} -> {self.offset}"
 
-    def select(self, position: Tuple[float, float]):
+    def select(self, position: Tuple[float, float], term: bl.Terminal):
         """
         Changes the border of the active tile to the the active border
         """
         self.border = active_border
-
+        self._update_edges(term)
         return self
 
-    def deselect(self) -> None:
+    def deselect(self, term) -> None:
         """
         Changes the border of the active tile back to its original border
         """
         self.border = self._original_border
+
+        self._update_edges(term)
 
     def redraw(self, term: bl.Terminal) -> None:
         """
@@ -147,6 +147,37 @@ class tile():
 
     def timing(self) -> Iterable[float]:
         return [(self.frequency, self)]
+
+    def _update_edges(self, term):
+        start_pos = (round(self.origin[0] * term.width), round(self.origin[1] * term.height))
+        end_pos = (round(self.offset[0] * term.width), round(self.offset[1] * term.height))
+
+        displacement = (end_pos[0] - start_pos[0] - 2, end_pos[1] - start_pos[1] - 2)
+        reset = term.move_left(displacement[0] + 2) + term.move_down(1)
+
+        top:    str = " " * (displacement[0]+2)
+        middle: str = " " + term.move_right(displacement[0]) + " "
+        bot:    str = " " * (displacement[0]+2)
+
+        if self.border:
+            top = self.border[4] + self.border[0] * displacement[0] + self.border[5]
+            middle = self.border[2] + term.move_right(displacement[0]) + self.border[3]
+            bot = self.border[6] + self.border[1] * displacement[0] + self.border[7]
+
+        if self.title:
+            top = _overlay(top, self.title.center(displacement[0] + 2))
+
+        if self.border or self.title:
+            top += reset
+
+        with term.location(*start_pos):
+            print (top + "".join([middle, reset] * displacement[1]) + bot, end="")
+
+        if self.border:
+            return (start_pos[0]-1, start_pos[1]-1), (end_pos[0]-1, end_pos[1]-1)
+        elif self.title:
+            return (start_pos[0], start_pos[1]-1), end_pos
+
 
     @staticmethod
     def from_conf(conf: dict):
@@ -200,12 +231,12 @@ class split(tile):
         else:
             raise NotImplementedError
 
-    def select(self, position: Tuple[float, float]):
-        tmp = [k[0] for k in [(i, x.deselect()) for i, x in enumerate(self.sections) if position not in x]]
-        return [x.select(position) for i, x in enumerate(self.sections) if i not in tmp][0]
+    def select(self, position: Tuple[float, float], term: bl.Terminal):
+        tmp = [k[0] for k in [(i, x.deselect(term)) for i, x in enumerate(self.sections) if position not in x]]
+        return [x.select(position, term) for i, x in enumerate(self.sections) if i not in tmp][0]
 
-    def deselect(self) -> None:
-        [x.deselect() for x in self.sections]
+    def deselect(self, term) -> None:
+        [x.deselect(term) for x in self.sections]
 
     def timing(self) -> Iterable[float]:
         return [y for x in self.sections for y in x.timing()]
@@ -266,7 +297,7 @@ class tabbed(tile):
         else:
             raise NotImplementedError
 
-    def select(self, position: Tuple[float, float]):
+    def select(self, position: Tuple[float, float], term: bl.Terminal):
         index = self.tabs.index(self.active_tab)
 
         if index == 0:
@@ -275,11 +306,11 @@ class tabbed(tile):
             pass
         else:
             pass
-        tmp = [k[0] for k in [(i, x.deselect()) for i, x in enumerate(self.tabs) if position not in x]]
-        return [x.select(position) for i, x in enumerate(self.tabs) if i not in tmp][0]
+        tmp = [k[0] for k in [(i, x.deselect(term)) for i, x in enumerate(self.tabs) if position not in x]]
+        return [x.select(position, term) for i, x in enumerate(self.tabs) if i not in tmp][0]
 
-    def deselect(self) -> None:
-        [x.deselect() for x in self.tabs]
+    def deselect(self, term) -> None:
+        [x.deselect(term) for x in self.tabs]
 
     def __str__(self) -> str:
         strs = [f"{self._base_str()} | splits: {self.splits}"]
@@ -362,6 +393,7 @@ class time_tile(tile):
         y = (end_pos[1] - start_pos[1]) // 2 + start_pos[1]
         with term.location(x, y):
             print(cur)
+            print(self.__str__(), cur, file=open("tiles", 'a'))
 
     @staticmethod
     def from_conf(conf: dict):

@@ -5,3 +5,124 @@ A simple curses based system monitor similar to that of glances and htop
 ## Requirements
 
 - [Blessed](https://github.com/jquast/blessed)
+
+## Configuration
+
+The configuration file is set up to be as extensible as possible. As such it can seem a little daunting at first glance. It consists of a singular Json file which is quite simple. The root object of the file contains a field with the value `screen` which can map to two different things. Either a `screen` object or a `partitions` object.
+
+### `Partitions`
+
+The `partitions` object is the more complex object of the two. It states in what way the area it controls should be divided for the subsequent objects. Theoretically there is no limit to how nested partitions can be other than your own sanity. However; practically it makes sense to stop at a point where you know that the information can be read and displayed clearly. The `partitions` object has two different fields which are obligatory and two which are optional.
+
+#### Partition Fields
+
+| Field Name | Required? | Default | Options |
+|---|---|---|---|
+|`type`|True|`"tiled"`|`"tiled"` or `"tabbed"`|
+|`screens`|True|`N/A`|`N/A`|
+|`orientation`|False|`"vertical"`|`"vertical"` or `"horizontal"`|
+|`splits`|False|`[]`|`[]` or `[]` filled with `n-1` values|
+
+##### `type`
+
+Describes how the partitions are going to be displayed. It has two accepted values, `"tiled"` and `"tabbed"`. If `"tiled"` then the program will split the area between all the different screens it is in control over. If `"tabbed"` the area will only display one screen, but it allow for navigation between the different screens altogether.
+
+ `screens`
+
+This field is an array of the different objects the partitioning will be in control over. Each object here can be it's own `screen` object or another partition.
+
+##### `orientation`
+
+This field describes how the `"tiled"` partitions will organize themselves. If set to `"vertical"` the screens will divide themselves across the given space in a vertical manner. If set to `"horizontal"` the screens will arrange themselves based on the horizontal space available. The default value is `"vertical"`
+
+##### `splits`
+
+This array describes at what percentage of the area the borders between the different screens will appear. Only useful for partitions with type `"tiled"`. There are two different possible values for this field. If the field is empty then the partition will divide the space evenly between the different screens. If the field contains any values, it has to contain `n-1` different values otherwise the configuration is invalid. These values should be in increasing order and can be interpreted as a percentage of the area provided to the screen object.
+
+### `Screen`
+
+The `screen` object is the simplest of the objects as it contains a singular module which performs a singular task. There are a variety of different types of screen objects. Some are static and don't do anything; Others update periodically. Depending on the type of `screen` there are different fields to consider. The type of screen id determined by the field `module`.
+
+#### Screen Fields
+
+| Field Name | Optional | Applies to | Default | Options |
+|---|---|---|---|---|
+| `module` | False | All | `N/A` | See below |
+| `border` | True | All | False | True, False, or an array of all the different characters in the border |
+| `title` | True | All | `""` | Any string |
+| `text` | False | `line` or `body` | `""` | Any string |
+| `frequency` | True | Dynamic modules | 1 | Any integer |
+| `executed` | True | Dynamic modules | `"thread"` | `"thread"` or `"process"` |
+
+##### `module`
+
+Describes the general purpose of the object.
+
+##### `border`
+
+Describes how the area shall be decorated if anything.
+
+##### `title`
+
+Describes a string which will be placed at the top of the area.
+
+##### `text`
+
+The content of the area.
+
+##### `frequency`
+
+How often the area will be updated.
+
+##### `executed`
+
+Whether the task will be performed using multithreading or using processes.
+
+
+#### Screen modules
+
+There are a variety of different modules available. Some of them are static and some are dynamic. They can be found here:
+
+##### Static
+
+###### Line
+
+This module is mainly meant debug different things within the program. It simply displays a line of text that never changes in the center of the area.
+
+###### Body
+
+This module is mainly meant debug different things within the program. It simply displays a multi-line string that never changes that is centered to the best of it's ability.
+
+##### Dynamic
+
+###### Time
+
+Mainly for debugging purposes, although much like the line module it displays a single line of text. That line is updated with the current amount of seconds since [Epoch](https://en.wikipedia.org/wiki/Epoch_(computing)).
+
+### Sample configuration
+
+```json
+{
+  "screen": {
+    "partitions": {
+      "type": "tiled",
+      "orientation": "vertical",
+      "screens":[
+        {
+          "module": "time",
+          "border": true,
+          "frequency": 2,
+          "executed": "process"
+        },
+        {
+          "module": "time",
+          "border": false,
+          "frequency": 1000,
+          "executed": "thread"
+        }
+      ],
+      "splits": []
+    }
+  }
+}
+```

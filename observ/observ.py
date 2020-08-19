@@ -1,7 +1,9 @@
 import math
 import multiprocessing as mp
 import threading as th
+from threading import Thread
 import time
+import concurrent.futures as cf
 from itertools import accumulate, chain, zip_longest
 from typing import Any, Callable, Iterable, Mapping, Tuple, Union
 
@@ -177,7 +179,6 @@ class tile():
             return (start_pos[0]-1, start_pos[1]-1), (end_pos[0]-1, end_pos[1]-1)
         elif self.title:
             return (start_pos[0], start_pos[1]-1), end_pos
-
 
     @staticmethod
     def from_conf(conf: dict):
@@ -399,13 +400,17 @@ class time_tile(tile):
         return time_tile(**conf)
 
 class realtime_tile(tile):
-    def __init__(self, func: Callable[[Iterable], None], func_args: Iterable[Any], *args, **kwargs) -> None:
+    def __init__(self, func: Callable[[Iterable], None], func_args: Iterable[Any], executed: str = "thread", *args, **kwargs) -> None:
         super(realtime_tile, self).__init__(*args, **kwargs)
 
         self.func = func
         self.func_args = func_args
 
-        self.thread: th.Thread = None
+        self.thread: Union[th.Thread, mp.Process, cf.Executor] = {
+            "thread": th.Thread,
+            "process": mp.Process,
+            # "concurrent": cf.Executor
+        }[executed]
         self.lock: th.Event = None
 
         self.data = None
@@ -446,6 +451,6 @@ _tile_dict = {
 
 # }
 
-# _thread_dict: dict[Callable[[Iterable], None], Tuple[th.Thread, th.Event, bool]] = {
+# _thread_dict: dict[Callable[[Iterable], None], Tuple[Union[th.Thread, mp.Process, cf.Executor], th.Event, bool]] = {
 
 # }

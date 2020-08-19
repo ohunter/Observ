@@ -3,6 +3,7 @@ import multiprocessing as mp
 import re
 import sys
 import threading as th
+import time
 from itertools import accumulate, chain, zip_longest
 from typing import Any, Callable, Iterable, Mapping, Tuple, Union
 
@@ -42,6 +43,8 @@ class tile():
         self.origin = origin
         self.offset = offset
         self.title = title
+
+        self.frequency = kwargs["frequency"] if "frequency" in kwargs else 1
 
         if isinstance(border, bool) and border:
             self.border = passive_border
@@ -142,6 +145,9 @@ class tile():
 
         self.render(term)
 
+    def timing(self) -> Iterable[float]:
+        return [(self.frequency, self)]
+
     @staticmethod
     def from_conf(conf: dict):
         root = None
@@ -200,6 +206,9 @@ class split(tile):
 
     def deselect(self) -> None:
         [x.deselect() for x in self.sections]
+
+    def timing(self) -> Iterable[float]:
+        return [y for x in self.sections for y in x.timing()]
 
     def __str__(self) -> str:
         strs = [f"{self._base_str()} | splits: {self.splits}"]
@@ -320,15 +329,15 @@ class line_tile(tile):
 
     @staticmethod
     def from_conf(conf: dict):
-        return line_tile(conf["text"], (0, 0), (1,1), conf.get("border"), conf.get("title"))
+        return line_tile(**conf)
 
 class text_tile(tile):
     def __init__(self, text: str, *args, **kwargs) -> None:
-        super(line_tile, self).__init__(*args, **kwargs)
+        super(text_tile, self).__init__(*args, **kwargs)
         self.text = text
 
     def render(self, term: bl.Terminal) -> None:
-        super(line_tile, self).render(term)
+        super(text_tile, self).render(term)
         start_pos = (round(self.origin[0] * term.width), round(self.origin[1] * term.height))
         end_pos = (round(self.offset[0] * term.width), round(self.offset[1] * term.height))
 
@@ -336,7 +345,27 @@ class text_tile(tile):
 
     @staticmethod
     def from_conf(conf: dict):
-        return text_tile(conf["text"], (0, 0), (1,1), conf.get("border"), conf.get("title"))
+        return text_tile(**conf)
+
+class time_tile(tile):
+    def __init__(self, *args, **kwargs) -> None:
+        super(time_tile, self).__init__(*args, **kwargs)
+
+    def render(self, term: bl.Terminal) -> None:
+        super(time_tile, self).render(term)
+        start_pos = (round(self.origin[0] * term.width), round(self.origin[1] * term.height))
+        end_pos = (round(self.offset[0] * term.width), round(self.offset[1] * term.height))
+
+        cur = f"{time.time():.3f}"
+
+        x = (end_pos[0] - start_pos[0]) // 2 - len(cur)//2 + start_pos[0]
+        y = (end_pos[1] - start_pos[1]) // 2 + start_pos[1]
+        with term.location(x, y):
+            print(cur)
+
+    @staticmethod
+    def from_conf(conf: dict):
+        return time_tile(**conf)
 
 class realtime_tile(tile):
     def __init__(self, func: Callable[[Iterable], None], func_args: Iterable[Any], *args, **kwargs) -> None:
@@ -379,12 +408,13 @@ _tile_dict = {
     "tabbed": tabbed,
     "line": line_tile,
     "text": text_tile,
+    "time": time_tile,
 }
 
-_resource_dict:dict[str, str] = {
+# _resource_dict:dict[str, str] = {
 
-}
+# }
 
-_thread_dict: dict[Callable[[Iterable], None], Tuple[th.Thread, th.Event, bool]] = {
+# _thread_dict: dict[Callable[[Iterable], None], Tuple[th.Thread, th.Event, bool]] = {
 
-}
+# }

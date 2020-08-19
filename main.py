@@ -1,12 +1,15 @@
 import argparse
+import itertools
+import json
 import logging
 import os
 import signal
-import json
+from itertools import accumulate, chain, zip_longest
 from signal import SIGWINCH
-from typing import Any, Iterable, Mapping
+from typing import Any, Iterable, Mapping, Tuple
 
 import blessed as bl
+
 import observ as ob
 
 meta_tiles = {
@@ -19,17 +22,60 @@ tile_dict = {
     "text": ob.text_tile.from_conf,
 }
 
+def _factorize(val):
+    factors = {}
+    while val > 1:
+        for i in range(2, val+1):
+            if val % i == 0:
+                factors[i] = factors[i] + 1 if i in factors else 1
+                val //= i
+                break
+    return factors
+
+def _lcm(vals: Iterable[int]) -> int:
+    lcm = 1
+    factors = [_factorize(round(x)) for x in vals]
+    lcm_factors = {k: max([d.get(k, 0) for d in factors]) for k in dict.fromkeys([y for x in factors for y in x.keys()]).keys()}
+    [lcm := lcm * k ** v for k,v in lcm_factors.items()]
+    return lcm
+
+def _gcd(vals: Iterable[int]) -> int:
+    gcd = 1
+    factors = [_factorize(round(x)) for x in vals]
+    gcd_factors = {k: min([d.get(k, 0) for d in factors]) for k in dict.fromkeys([y for x in factors for y in x.keys()]).keys()}
+    [gcd := gcd * k ** v for k,v in gcd_factors.items()]
+    return gcd
+
+def find_period(vals: Iterable[int]) -> float:
+    return 1/_gcd(vals)
+
 class scheduler():
-    def __init__(self, timing: Iterable[float]) -> None:
-        self.timings = sorted(list(set(timing)))
+    def __init__(self, timing: Iterable[Tuple[int, ob.tile]]) -> None:
+        period = find_period([x for x,v in timing])
+        steps = [{i/k : v for i in range(1, int(period * k)+1)} for k, v in timing]
+        self.timings = {x:chain([d[x] for d in steps if x in d]) for x in dict.fromkeys(sorted([b for a in steps for b in a]))}
 
-        self.t = 0
+        self.total = 0.0
+        self.t = 0.0
+        self.dt = 0.0
 
-    def next_timing(self) -> float:
-        dt = min([x - self.t for x in self.timings if x > self.t])
-        self.t += dt
-        self.t %= max(self.timings)
-        return dt
+    def next_timing(self):
+        while 1:
+            self.t %= max(self.timings)
+            self.t += self.dt
+            try:
+                self.dt = min([x - self.t for x in self.timings if x > self.t])
+            except ValueError:
+                self.dt = min(self.timings)
+
+            self.total += self.dt
+            yield self.dt, self.timings.get(self.t, self.timings[max(self.timings)])
+
+    def __iter__(self):
+        return self.next_timing()
+
+    def __next__(self):
+        return self.next_timing()
 
 class screen():
     def __init__(self, conf: Mapping[str, Any]) -> None:
@@ -49,9 +95,9 @@ class screen():
 
     def run(self) -> None:
         with self.term.fullscreen(), self.term.cbreak(), self.term.hidden_cursor():
-            while 1:
-                inp = self.term.inkey(timeout=self.sched.next_timing())
+            for time, tiles in self.sched.next_timing():
 
+                inp = self.term.inkey(timeout=time)
                 if inp in ["q", "Q"]:
                     return
                 elif inp.name in ["KEY_UP", "KEY_DOWN", "KEY_LEFT", "KEY_RIGHT"]:
@@ -60,7 +106,8 @@ class screen():
                     delta = ((self.active.offset[0] - self.active.origin[0])/2 + 0.1, (self.active.offset[1] - self.active.origin[1])/2 + 0.1)
                     self.active = self.tile.select(self.actions[inp.name](pos, delta))
 
-                self.tile.render(self.term)
+                # self.tile.render(self.term)
+                for tile in tiles: tile.render(self.term)
 
     def redraw(self) -> None:
         self.tile.redraw(self.term)

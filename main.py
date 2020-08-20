@@ -3,9 +3,8 @@ import json
 import logging
 import os
 import signal
-from itertools import chain
 from signal import SIGWINCH
-from typing import Any, Iterable, Mapping, Tuple
+from typing import Any, Mapping
 
 import blessed as bl
 

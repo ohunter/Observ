@@ -52,7 +52,7 @@ The `tile` object is the simplest of the objects as it contains a singular modul
 | `title` | True | All | `""` | Any string |
 | `text` | False | `line` or `body` | `""` | Any string |
 | `frequency` | True | Dynamic modules | 1 | Any integer |
-| `executed` | True | Dynamic modules | `"thread"` | `"native"`, `"thread"`, or `"process"` |
+| `executed` | True | Dynamic modules | `"native"` | `"native"`, `"thread"`, or `"process"` |
 
 ##### `module`
 

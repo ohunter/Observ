@@ -1,10 +1,10 @@
 from typing import Any, Iterable, Mapping, Tuple
+from collections import defaultdict
 
 class scheduler():
     def __init__(self, timing: Iterable[Tuple[int, Any]]) -> None:
-        period = self._find_period([x for x,v in timing])
-        steps = [{i/k : v for i in range(1, int(period * k)+1)} for k, v in timing]
-        self.timings = {x:[d[x] for d in steps if x in d] for x in dict.fromkeys(sorted([b for a in steps for b in a]))}
+        self._base_periods = defaultdict(list)
+        self.add_items(timing)
 
         self.total = 0.0
         self.t = 0.0
@@ -22,12 +22,19 @@ class scheduler():
             self.total += self.dt
             yield self.dt, self.timings.get(self.t, self.timings[max(self.timings)])
 
+    def add_items(self, timing: Iterable[Tuple[int, Any]]):
+        for t, v in timing:
+            self._base_periods[t].append(v)
+        period = self._find_period(self._base_periods)
+        steps = [{i/k : v for i in range(1, int(period * k)+1)} for k, v in timing]
+        self.timings = {x:[d[x] for d in steps if x in d] for x in dict.fromkeys(sorted([b for a in steps for b in a]))}
+
     def _factorize(self, val: int) -> Mapping[int, int]:
-        factors = {}
+        factors = defaultdict(int)
         while val > 1:
             for i in range(2, val+1):
                 if val % i == 0:
-                    factors[i] = factors[i] + 1 if i in factors else 1
+                    factors[i] += 1
                     val //= i
                     break
         return factors

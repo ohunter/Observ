@@ -1,15 +1,11 @@
 import math
-import multiprocessing as mp
-import threading as th
-from threading import Thread
 import time
-import concurrent.futures as cf
 from itertools import accumulate, chain, zip_longest
-from typing import Any, Callable, Iterable, Mapping, Tuple, Union
+from typing import Iterable, Tuple, Union
 
 import blessed as bl
 
-import modules
+import modules as mo
 
                     # T    B    L    R    TL   TR    BL   BR
 active_border =     ["━", "━", "┃", "┃", "┏", "┓", "┗", "┛"]
@@ -379,16 +375,24 @@ class text_tile(tile):
     def from_conf(conf: dict):
         return text_tile(**conf)
 
-class time_tile(tile):
+class realtime_tile(tile):
+    def __init__(self, *args, **kwargs) -> None:
+        super(realtime_tile, self).__init__(*args, **kwargs)
+        self.module: mo.module
+
+    # def render(self, term: bl.Terminal) -> None:
+    #     start_pos, end_pos = super(realtime_tile, self).render(term)
+
+class time_tile(realtime_tile):
     def __init__(self, *args, **kwargs) -> None:
         super(time_tile, self).__init__(*args, **kwargs)
+        kwargs.update({"func": time.time, "func_args": []})
+        self.module = mo.module.procure(*args, **kwargs)
 
     def render(self, term: bl.Terminal) -> None:
-        super(time_tile, self).render(term)
-        start_pos = (round(self.origin[0] * term.width), round(self.origin[1] * term.height))
-        end_pos = (round(self.offset[0] * term.width), round(self.offset[1] * term.height))
+        start_pos, end_pos = super(time_tile, self).render(term)
 
-        cur = f"{time.time():.3f}"
+        cur = f"{self.module.fetch():.3f}"
 
         x = (end_pos[0] - start_pos[0]) // 2 - len(cur)//2 + start_pos[0]
         y = (end_pos[1] - start_pos[1]) // 2 + start_pos[1]
@@ -398,42 +402,6 @@ class time_tile(tile):
     @staticmethod
     def from_conf(conf: dict):
         return time_tile(**conf)
-
-class realtime_tile(tile):
-    def __init__(self, func: Callable[[Iterable], None], func_args: Iterable[Any], executed: str = "thread", *args, **kwargs) -> None:
-        super(realtime_tile, self).__init__(*args, **kwargs)
-
-        self.func = func
-        self.func_args = func_args
-
-        self.thread: Union[th.Thread, mp.Process, cf.Executor] = {
-            "thread": th.Thread,
-            "process": mp.Process,
-            # "concurrent": cf.Executor
-        }[executed]
-        self.lock: th.Event = None
-
-        self.data = None
-
-    def render(self, term: bl.Terminal) -> None:
-        start_pos, end_pos = super(realtime_tile, self).render(term)
-
-    def initiate(self) -> None:
-        started = False
-        if self.func in _thread_dict:
-            self.thread, self.lock, started = _thread_dict[self.func]
-        else:
-            self.lock = th.Event()
-            self.thread = th.Thread(target=self.func, args=chain([self.lock], self.func_args), daemon=True)
-            _thread_dict[self.func] = (self.thread, self.lock, started)
-
-        if not started():
-            self.thread.start()
-            _thread_dict[self.func] = (self.thread, self.lock, started)
-
-    def update(self):
-
-        pass
 
 class rt_line_tile(realtime_tile):
     def __init__(self, *args, **kwargs) -> None:
@@ -446,6 +414,12 @@ _tile_dict = {
     "text": text_tile,
     "time": time_tile,
 }
+
+# _active_modules: List[mo.module_state] = []
+
+# _module_dict: Mapping[Callable[[], None], Tuple[Union[th.Thread, mp.Process, cf.Executor], th.Event, bool]] = {
+
+# }
 
 # _resource_dict:dict[str, str] = {
 

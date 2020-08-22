@@ -5,6 +5,7 @@ A simple curses based system monitor similar to that of glances and htop
 ## Requirements
 
 - [Blessed](https://github.com/jquast/blessed)
+- [ReaderWriterLock](https://github.com/elarivie/pyReaderWriterLock)
 
 ## Configuration
 
@@ -77,7 +78,6 @@ How often the area will be updated.
 ##### `executed`
 
 This describes how the module will be evaluated. If `"native"` the function will be executed every time the tile is updated. If `"thread"` the function will run in a separate thread controlled by the process and as such be subject to the GIL. If `"process"` the function will use `multiprocessing` to spawn separate processes that will schedule and evaluate at the timings stated in the configuration.
-
 
 #### Tile modules
 

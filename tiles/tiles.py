@@ -5,7 +5,8 @@ from typing import Iterable, Tuple, Union
 
 import blessed as bl
 
-import modules as mo
+# import modules as mo
+from . import realtime as rt
 
                     # T    B    L    R    TL   TR    BL   BR
 active_border =     ["━", "━", "┃", "┃", "┏", "┓", "┗", "┛"]
@@ -378,7 +379,7 @@ class text_tile(tile):
 class realtime_tile(tile):
     def __init__(self, *args, **kwargs) -> None:
         super(realtime_tile, self).__init__(*args, **kwargs)
-        self.module: mo.module
+        self.module: rt.execution
 
     # def render(self, term: bl.Terminal) -> None:
     #     start_pos, end_pos = super(realtime_tile, self).render(term)
@@ -387,7 +388,7 @@ class time_tile(realtime_tile):
     def __init__(self, *args, **kwargs) -> None:
         super(time_tile, self).__init__(*args, **kwargs)
         kwargs.update({"func": time.time, "func_args": []})
-        self.module = mo.module.procure(*args, **kwargs)
+        self.module = rt.execution.procure(*args, **kwargs)
 
     def render(self, term: bl.Terminal) -> None:
         start_pos, end_pos = super(time_tile, self).render(term)
@@ -415,7 +416,7 @@ _tile_dict = {
     "time": time_tile,
 }
 
-# _active_modules: List[mo.module_state] = []
+# _active_modules: List[rt.execution_state] = []
 
 # _module_dict: Mapping[Callable[[], None], Tuple[Union[th.Thread, mp.Process, cf.Executor], th.Event, bool]] = {
 

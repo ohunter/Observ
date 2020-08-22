@@ -8,14 +8,14 @@ from typing import Any, Mapping
 
 import blessed as bl
 
-import observ as ob
+import tiles as ti
 import sched as sc
 
 class screen():
     def __init__(self, conf: Mapping[str, Any]) -> None:
         self.term = bl.Terminal()
 
-        self.root: ob.tile = ob.tile.from_conf(conf["screen"])
+        self.root: ti.tile = ti.tile.from_conf(conf["screen"])
         self.active = self.root.select((0,0), self.term)
 
         self.sched = sc.scheduler(self.root.timing())

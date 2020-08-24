@@ -397,7 +397,7 @@ class realtime_tile(tile):
 class time_tile(realtime_tile):
     def __init__(self, *args, **kwargs) -> None:
         super(time_tile, self).__init__(*args, **kwargs)
-        kwargs.update({"func": time.time, "func_args": [], "func_kwargs": {}})
+        kwargs.update({"func": time.time, "func_args": [], "func_kwargs": {}, "return_type": float})
         self.module = rt.execution.procure(self, *args, **kwargs)
 
     def render(self, term: bl.Terminal) -> None:

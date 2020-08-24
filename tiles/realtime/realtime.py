@@ -8,8 +8,8 @@ from typing import Any, Callable, Iterable, List, Mapping, Union
 
 
 def _module_executor(func, *args, **kwargs):
-    sched = kwargs["sched"]
-    queue = kwargs["queue"]
+    sched = kwargs.pop('Sched', None)
+    queue = kwargs.pop('Queue', None)
 
     for t, identifier in sched.next_timing():
         result = func(*args, **kwargs)
@@ -30,15 +30,15 @@ class execution():
     - The function has to return the value otherwise the tile wont know what to render.
     - If the rendering of other tiles is slow, it may be because the system forces the evaluation of the function. Consider switching the execution method to `threaded` or `process`
     """
-    def __init__(self, func: Callable[..., Any], func_args: Iterable[Any], func_kwargs: Mapping[str, Any], instance, store_results: Union[Callable[[], None], bool] = False, *args, **kwargs) -> None:
+    def __init__(self, func: Callable[..., Any], func_args: Iterable[Any], func_kwargs: Mapping[str, Any], instance, return_type: Union[Callable[[], None]], store_results: bool = False, *args, **kwargs) -> None:
         self.func = func
         self.args = func_args
         self.kwargs = func_kwargs
 
-        if isinstance(store_results, bool):
-            self._base_storage = None if not store_results else list
-        if isinstance(store_results, Callable):
-            self._base_storage = store_results
+        if store_results:
+            self._base_storage = list
+        else:
+            self._base_storage = return_type
 
         self.instances = defaultdict(self._base_storage)
 
@@ -48,7 +48,7 @@ class execution():
         raise NotImplementedError
 
     def add_instance(self, o):
-        self.instances[o] = type(self._base_storage)()
+        self.instances[o] = self._base_storage()
 
     @staticmethod
     def procure(tile, executed: str = "native", *args, **kwargs):
@@ -109,7 +109,8 @@ class concurrent_execution(execution):
             queue = mp.Queue
 
         self.queue = queue()
-        self.kwargs.update({"func": self.func,"instances": [k for k, v in self.instances.items()], "sched": sc.scheduler([(a ,b) for x in self.instances for a, b in x.timing()]), "Queue": self.queue})
+        # "Instances": [k for k, v in self.instances.items()], 
+        self.kwargs.update({"func": self.func, "Sched": sc.scheduler([(a ,b) for x in self.instances for a, b in x.timing()]), "Queue": self.queue})
 
         self.remote = remote(target=_module_executor, args=self.args, kwargs=self.kwargs, daemon=True)
 
@@ -121,9 +122,10 @@ class concurrent_execution(execution):
         while not self.queue.empty():
             e = self.queue.get()
             if type(self._base_storage) != type(None) and "append" in self._base_storage.__dict__:
-                self.instances[e.id].append(e.value)
+                self.instances[e[0]].append(e[1])
             else:
-                self.instances[e.id] = e.value
+                self.instances[e[0]] = e[1]
+
 
         return self.instances[identifier]
 

@@ -5,7 +5,6 @@ A simple curses based system monitor similar to that of glances and htop
 ## Requirements
 
 - [Blessed](https://github.com/jquast/blessed)
-- [ReaderWriterLock](https://github.com/elarivie/pyReaderWriterLock)
 
 ## Configuration
 

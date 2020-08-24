@@ -2,8 +2,20 @@ import multiprocessing as mp
 import queue as qu
 import sched as sc
 import threading as th
+import time
 from collections import defaultdict
 from typing import Any, Callable, Iterable, List, Mapping, Union
+
+
+def _module_executor(func, *args, **kwargs):
+    sched = kwargs["sched"]
+    queue = kwargs["queue"]
+
+    for t, identifier in sched.next_timing():
+        result = func(*args, **kwargs)
+
+        queue.put((identifier, result))
+        time.sleep(t)
 
 class _tmp_exec():
     def __init__(self, executed, func, func_args, func_kwargs, *args, **kwargs) -> None:
@@ -18,7 +30,7 @@ class execution():
     - The function has to return the value otherwise the tile wont know what to render.
     - If the rendering of other tiles is slow, it may be because the system forces the evaluation of the function. Consider switching the execution method to `threaded` or `process`
     """
-    def __init__(self, func: Callable[..., None], func_args: Iterable[Any], func_kwargs: Mapping[str, Any], instance, store_results: Union[Callable[[], None], bool] = False, *args, **kwargs) -> None:
+    def __init__(self, func: Callable[..., Any], func_args: Iterable[Any], func_kwargs: Mapping[str, Any], instance, store_results: Union[Callable[[], None], bool] = False, *args, **kwargs) -> None:
         self.func = func
         self.args = func_args
         self.kwargs = func_kwargs
@@ -97,9 +109,9 @@ class concurrent_execution(execution):
             queue = mp.Queue
 
         self.queue = queue()
-        self.kwargs.update({"instances": [k for k, v in self.instances.items()], "sched": sc.scheduler([(a ,b) for x in self.instances for a, b in x.timing()]), "Queue": self.queue})
+        self.kwargs.update({"func": self.func,"instances": [k for k, v in self.instances.items()], "sched": sc.scheduler([(a ,b) for x in self.instances for a, b in x.timing()]), "Queue": self.queue})
 
-        self.remote = remote(target=self.func, args=self.args, kwargs=self.kwargs, daemon=True)
+        self.remote = remote(target=_module_executor, args=self.args, kwargs=self.kwargs, daemon=True)
 
         self.remote.start()
 
@@ -107,7 +119,7 @@ class concurrent_execution(execution):
         assert self.started == True, "Cannot fetch data before the concurrent execution has started."
 
         while not self.queue.empty():
-            e = self.queue.pop()
+            e = self.queue.get()
             if type(self._base_storage) != type(None) and "append" in self._base_storage.__dict__:
                 self.instances[e.id].append(e.value)
             else:

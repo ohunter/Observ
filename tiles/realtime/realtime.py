@@ -96,9 +96,8 @@ class concurrent_execution(execution):
             remote = mp.Process
             queue = mp.Queue
 
-
         self.queue = queue()
-        self.kwargs.update({"instances": [k for k, v in self.instances.items()], "sched": sc.scheduler([x.timing() for x in self.instances]), "Queue": self.queue})
+        self.kwargs.update({"instances": [k for k, v in self.instances.items()], "sched": sc.scheduler([(a ,b) for x in self.instances for a, b in x.timing()]), "Queue": self.queue})
 
         self.remote = remote(target=self.func, args=self.args, kwargs=self.kwargs, daemon=True)
 

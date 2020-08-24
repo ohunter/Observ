@@ -78,6 +78,25 @@ class concurrent_execution(execution):
     def __init__(self, frequencies: Union[int, Iterable[int]], *args, **kwargs) -> None:
         super(concurrent_execution, self).__init__(*args, **kwargs)
 
+        remote = None
+        if isinstance(self, thread_execution):
+            remote = th.Thread
+        elif isinstance(self, process_execution):
+            remote = mp.Process
+
+        self.remote = remote(target=self.func, args=self.args, kwargs=self.kwargs, daemon=True)
+
+        self.started = False
+
+    def add_instance(self, o):
+        assert self.started == False, "Cannot add a new instance once the concurrent execution has started."
+        super(concurrent_execution, self).add_instance(o)
+
+    def start(self):
+        self.started = True
+
+        self.remote.start()
+
 class thread_execution(concurrent_execution):
     def __init__(self, *args, **kwargs) -> None:
         super(thread_execution, self).__init__(*args, **kwargs)

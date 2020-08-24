@@ -387,13 +387,13 @@ class realtime_tile(tile):
 class time_tile(realtime_tile):
     def __init__(self, *args, **kwargs) -> None:
         super(time_tile, self).__init__(*args, **kwargs)
-        kwargs.update({"func": time.time, "func_args": []})
-        self.module = rt.execution.procure(*args, **kwargs)
+        kwargs.update({"func": time.time, "func_args": [], "func_kwargs": {}})
+        self.module = rt.execution.procure(self, *args, **kwargs)
 
     def render(self, term: bl.Terminal) -> None:
         start_pos, end_pos = super(time_tile, self).render(term)
 
-        cur = f"{self.module.fetch():.3f}"
+        cur = f"{self.module.fetch(self):.3f}"
 
         x = (end_pos[0] - start_pos[0]) // 2 - len(cur)//2 + start_pos[0]
         y = (end_pos[1] - start_pos[1]) // 2 + start_pos[1]

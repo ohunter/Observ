@@ -177,6 +177,16 @@ class tile():
         elif self.title:
             return (start_pos[0], start_pos[1]-1), end_pos
 
+    def start_concurrent(self):
+        if isinstance(self, split):
+            [x.start_concurrent() for x in self.sections]
+        elif isinstance(self, tabbed):
+            [x.start_concurrent() for x in self.tabs]
+        elif isinstance(self, realtime_tile) and self.module:
+            self.module.start()
+        else:
+            return
+
     @staticmethod
     def from_conf(conf: dict):
         root = None

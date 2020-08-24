@@ -28,6 +28,7 @@ class screen():
         }
 
     def run(self) -> None:
+        self.root.start_concurrent()
         with self.term.fullscreen(), self.term.cbreak(), self.term.hidden_cursor():
             for time, tiles in self.sched.next_timing():
 

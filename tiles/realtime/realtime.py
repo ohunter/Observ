@@ -1,10 +1,9 @@
 import multiprocessing as mp
-import threading as th
-import readerwriterlock as rwl
-from typing import Any, Callable, Iterable, List, Mapping, NamedTuple, TypedDict, Union
-from collections import defaultdict
-
+import queue as qu
 import sched as sc
+import threading as th
+from collections import defaultdict
+from typing import Any, Callable, Iterable, List, Mapping, Union
 
 class _tmp_exec():
     def __init__(self, executed, func, func_args, func_kwargs, *args, **kwargs) -> None:
@@ -72,21 +71,14 @@ class native_execution(execution):
         else:
             self.instances[identifier] = result
 
-        return result
+        return self.instances[identifier]
 
 class concurrent_execution(execution):
-    def __init__(self, frequencies: Union[int, Iterable[int]], *args, **kwargs) -> None:
-        super(concurrent_execution, self).__init__(*args, **kwargs)
-
-        remote = None
-        if isinstance(self, thread_execution):
-            remote = th.Thread
-        elif isinstance(self, process_execution):
-            remote = mp.Process
-
-        self.remote = remote(target=self.func, args=self.args, kwargs=self.kwargs, daemon=True)
-
+    def __init__(self, *args, **kwargs) -> None:
         self.started = False
+        self.remote: Union[th.Thread, mp.Process]
+
+        super(concurrent_execution, self).__init__(*args, **kwargs)
 
     def add_instance(self, o):
         assert self.started == False, "Cannot add a new instance once the concurrent execution has started."
@@ -95,7 +87,34 @@ class concurrent_execution(execution):
     def start(self):
         self.started = True
 
+        remote = None
+        queue = None
+        if isinstance(self, thread_execution):
+            remote = th.Thread
+            queue = qu.Queue
+        elif isinstance(self, process_execution):
+            remote = mp.Process
+            queue = mp.Queue
+
+
+        self.queue = queue()
+        self.kwargs.update({"instances": [k for k, v in self.instances.items()], "sched": sc.scheduler([x.timing() for x in self.instances]), "Queue": self.queue})
+
+        self.remote = remote(target=self.func, args=self.args, kwargs=self.kwargs, daemon=True)
+
         self.remote.start()
+
+    def fetch(self, identifier) -> Any:
+        assert self.started == True, "Cannot fetch data before the concurrent execution has started."
+
+        while not self.queue.empty():
+            e = self.queue.pop()
+            if type(self._base_storage) != type(None) and "append" in self._base_storage.__dict__:
+                self.instances[e.id].append(e.value)
+            else:
+                self.instances[e.id] = e.value
+
+        return self.instances[identifier]
 
 class thread_execution(concurrent_execution):
     def __init__(self, *args, **kwargs) -> None:

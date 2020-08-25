@@ -1,11 +1,12 @@
 import math
+import os
 import time
 from itertools import accumulate, chain, zip_longest
 from typing import Iterable, Tuple, Union
 
 import blessed as bl
 
-# import modules as mo
+import modules as mo
 from . import realtime as rt
 
                     # T    B    L    R    TL   TR    BL   BR
@@ -389,16 +390,15 @@ class text_tile(tile):
 class realtime_tile(tile):
     def __init__(self, *args, **kwargs) -> None:
         super(realtime_tile, self).__init__(*args, **kwargs)
-        self.module: rt.execution
+        self.module = rt.execution.procure(self, *args, **kwargs)
 
     # def render(self, term: bl.Terminal) -> None:
     #     start_pos, end_pos = super(realtime_tile, self).render(term)
 
 class time_tile(realtime_tile):
     def __init__(self, *args, **kwargs) -> None:
-        super(time_tile, self).__init__(*args, **kwargs)
         kwargs.update({"func": time.time, "func_args": [], "func_kwargs": {}, "return_type": float})
-        self.module = rt.execution.procure(self, *args, **kwargs)
+        super(time_tile, self).__init__(*args, **kwargs)
 
     def render(self, term: bl.Terminal) -> None:
         start_pos, end_pos = super(time_tile, self).render(term)
@@ -414,6 +414,26 @@ class time_tile(realtime_tile):
     def from_conf(conf: dict):
         return time_tile(**conf)
 
+class cpu_tile(realtime_tile):
+    def __init__(self, *args, **kwargs) -> None:
+        kwargs.update({"func": mo.CPU, "func_args": [], "func_kwargs": {"files": ["/proc/stat"]}, "return_type": list, "initial": [0] * os.cpu_count()})
+        super(cpu_tile, self).__init__(*args, **kwargs)
+
+    def render(self, term: bl.Terminal) -> None:
+        start_pos, end_pos = super(cpu_tile, self).render(term)
+
+        out = self.module.fetch(self)
+        while len(out) > 2:
+            out.pop(0)
+
+        import pdb; pdb.set_trace()
+
+        cur = [(cl-ll)/(ct-lt) * 100 for (ll, lt), (cl, ct) in zip(*out)]
+
+    @staticmethod
+    def from_conf(conf: dict):
+        return cpu_tile(**conf)
+
 class rt_line_tile(realtime_tile):
     def __init__(self, *args, **kwargs) -> None:
         super(realtime_tile, self).__init__(*args, **kwargs)
@@ -424,6 +444,7 @@ _tile_dict = {
     "line": line_tile,
     "text": text_tile,
     "time": time_tile,
+    "cpu": cpu_tile
 }
 
 # _active_modules: List[rt.execution_state] = []

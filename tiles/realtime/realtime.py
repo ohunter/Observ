@@ -43,7 +43,7 @@ class execution():
     Things to consider when using a `native` execution mode:
     - If the rendering of other tiles is slow, it may be because the system forces the evaluation of the function. Consider switching the execution method to `threaded` or `process`
     """
-    def __init__(self, func: Callable[..., Any], func_args: Iterable[Any], func_kwargs: Mapping[str, Any], instance, return_type: Union[Callable[[], None], Type], store_results: bool = False, *args, **kwargs) -> None:
+    def __init__(self, func: Callable[..., Any], func_args: Iterable[Any], func_kwargs: Mapping[str, Any], instance, return_type: Union[Callable[[], None], Type], store_results: bool = False, initial: Any = None, *args, **kwargs) -> None:
         self.func = func
         self.args = func_args
         self.kwargs = func_kwargs
@@ -146,6 +146,7 @@ class concurrent_execution(execution):
                     self.mapping[e.identifier].append(e.value)
                 else:
                     self.mapping[e.identifier] = e.value
+
 
             return self.mapping[id(identifier)]
         except BaseException as e:

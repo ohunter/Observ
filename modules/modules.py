@@ -1,12 +1,28 @@
+from io import TextIOWrapper
 import math
 import multiprocessing as mp
 import threading as th
 import os
 import queue
 import time
-from typing import Any, Callable, Iterable, List, Mapping, TypedDict, Union
+from typing import Any, Callable, Iterable, List, Mapping, Tuple, TypedDict, Union
 
 size_list = ["B", "k", "M", "G", "T", "P"]
+
+def CPU(files: Mapping[str, TextIOWrapper], *args, **kwargs) -> List[Tuple[float, float]]:
+    data = files["/proc/stat"]
+
+    data.seek(0)
+
+    loads = [""]
+    while not loads[-1].startswith("intr"):
+        loads.append(data.readline())
+    loads = [[float(x) for x in line.split()[1:]] for line in loads[1:]]
+
+    cl = [x[0]+x[2] for x in loads]
+    ct = [x[0]+x[2]+x[3] for x in loads]
+
+    return [(x, t) for x, t in zip(cl, ct)]
 
 class message():
     def __init__(self, message: str, x: int = 0, y: int = 0, typ: str = "msg") -> None:

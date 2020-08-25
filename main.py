@@ -28,27 +28,32 @@ class screen():
         }
 
     def run(self) -> None:
-        self.root.start_concurrent()
-        with self.term.fullscreen(), self.term.cbreak(), self.term.hidden_cursor():
-            for time, tiles in self.sched.next_timing():
+        try:
+            self.root.start_concurrent()
+            with self.term.fullscreen(), self.term.cbreak(), self.term.hidden_cursor():
+                for time, tiles in self.sched.next_timing():
 
-                inp = self.term.inkey(timeout=time)
-                if inp in ["q", "Q"]:
-                    return
-                elif inp.name in ["KEY_UP", "KEY_DOWN", "KEY_LEFT", "KEY_RIGHT"]:
-                    # Note: Once Python 3.9 comes out switch to using `math.nextafter` to figure out the next tile in a direction
-                    pos = (self.active.origin[0] + (self.active.offset[0] - self.active.origin[0])/2, self.active.origin[1] + (self.active.offset[1] - self.active.origin[1])/2)
-                    delta = ((self.active.offset[0] - self.active.origin[0])/2 + 0.1, (self.active.offset[1] - self.active.origin[1])/2 + 0.1)
-                    self.active.deselect(self.term)
-                    self.active = self.root.select(self.actions[inp.name](pos, delta), self.term)
+                    inp = self.term.inkey(timeout=time)
+                    if inp in ["q", "Q"]:
+                        logging.info("Exit input recieved. Terminating...")
+                        return
+                    elif inp.name in ["KEY_UP", "KEY_DOWN", "KEY_LEFT", "KEY_RIGHT"]:
+                        # Note: Once Python 3.9 comes out switch to using `math.nextafter` to figure out the next tile in a direction
+                        pos = (self.active.origin[0] + (self.active.offset[0] - self.active.origin[0])/2, self.active.origin[1] + (self.active.offset[1] - self.active.origin[1])/2)
+                        delta = ((self.active.offset[0] - self.active.origin[0])/2 + 0.1, (self.active.offset[1] - self.active.origin[1])/2 + 0.1)
+                        self.active.deselect(self.term)
+                        self.active = self.root.select(self.actions[inp.name](pos, delta), self.term)
 
-                for tile in tiles:
-                    tile.render(self.term)
+                    for tile in tiles:
+                        tile.render(self.term)
+        except BaseException as e:
+            import traceback; traceback.print_exc()
+            import pdb; pdb.set_trace()
 
     def redraw(self) -> None:
         self.root.redraw(self.term)
 
-def main(args):
+def main(args: argparse.Namespace) -> None:
     """
     The rough steps for creating the application layout:
         1) Read the configuration data
@@ -59,7 +64,7 @@ def main(args):
     config: dict
     scr: screen
 
-    def sig_resize(sig, action):
+    def sig_resize(sig, action) -> None:
         scr.redraw()
 
     signal.signal(SIGWINCH, sig_resize)
@@ -68,13 +73,11 @@ def main(args):
     with open(args.config) as fi:
         config = json.load(fi)
 
+    logging.info("Creating screen layout")
     scr = screen(config)
 
-    try:
-        scr.run()
-    except BaseException as e:
-        import traceback; traceback.print_exc()
-        import pdb; pdb.set_trace()
+    scr.run()
+
 
 if __name__ == "__main__":
 
@@ -108,7 +111,7 @@ if __name__ == "__main__":
         "-ll",
         "--log_level",
         type=int,
-        default=3,
+        default=0,
         help="The level the logger will output for. Corresponds to 1/10 of the logging levels for python. Only works if the log flag is given."
     )
 
@@ -122,6 +125,5 @@ if __name__ == "__main__":
         logging.basicConfig(level=logging.CRITICAL+1)
 
     logging.info("Starting application")
-    logging.info(f"Using configuration located at {args.config}")
-    logging.info(f"Allowing curses to handle terminal setup")
+    logging.info(f"Using configuration located at {os.path.abspath(args.config)}")
     main(args)

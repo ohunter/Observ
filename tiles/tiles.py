@@ -147,7 +147,7 @@ class tile():
     def timing(self) -> Iterable[float]:
         return [(self.frequency, self)]
 
-    def _update_edges(self, term):
+    def _update_edges(self, term) -> None:
         start_pos = (round(self.origin[0] * term.width), round(self.origin[1] * term.height))
         end_pos = (round(self.offset[0] * term.width), round(self.offset[1] * term.height))
 
@@ -177,12 +177,12 @@ class tile():
         elif self.title:
             return (start_pos[0], start_pos[1]-1), end_pos
 
-    def start_concurrent(self):
+    def start_concurrent(self) -> None:
         if isinstance(self, split):
             [x.start_concurrent() for x in self.sections]
         elif isinstance(self, tabbed):
             [x.start_concurrent() for x in self.tabs]
-        elif isinstance(self, realtime_tile) and self.module:
+        elif isinstance(self, realtime_tile) and self.module and not self.module.started:
             self.module.start()
         else:
             return

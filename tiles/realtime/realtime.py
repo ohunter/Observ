@@ -1,21 +1,35 @@
+import logging
 import multiprocessing as mp
+import os
 import queue as qu
 import sched as sc
 import threading as th
 import time
 from collections import defaultdict
-from typing import Any, Callable, Iterable, List, Mapping, Union
+from typing import Any, Callable, Iterable, List, Mapping, NamedTuple, Type, Union
 
 
-def _module_executor(func, *args, **kwargs):
-    sched = kwargs.pop('Sched', None)
-    queue = kwargs.pop('Queue', None)
+class message(NamedTuple):
+    identifier: Any
+    value: Any
 
-    for t, identifier in sched.next_timing():
-        result = func(*args, **kwargs)
+def _module_executor(func, sched, queue, *args, **kwargs) -> None:
+    logging.debug(f"Task recieved with function {func} with arguments {args} and keyword arguments {kwargs}")
 
-        queue.put((identifier, result))
-        time.sleep(t)
+    if "files" in kwargs:
+        logging.info(f"Opening required files for task")
+        kwargs.update({"files": {x : open(x) for x in kwargs.pop('files')}})
+        logging.info(f"The following files were opened: {', '.join(kwargs['files'])}")
+
+    logging.debug(f"Starting scheduler for task with function {func} with arguments {args} and keyword arguments {kwargs}")
+    try:
+        for t, identifier in sched.next_timing():
+            result = func(*args, **kwargs)
+            for e in identifier:
+                queue.put(message(e, result))
+            time.sleep(t)
+    except BaseException as e:
+        logging.critical(f"Exception occurred in task with function {func} with arguments {args} and keyword arguments {kwargs}:\n{e}")
 
 class _tmp_exec():
     def __init__(self, executed, func, func_args, func_kwargs, *args, **kwargs) -> None:
@@ -27,10 +41,9 @@ class _tmp_exec():
 class execution():
     """
     Things to consider when using a `native` execution mode:
-    - The function has to return the value otherwise the tile wont know what to render.
     - If the rendering of other tiles is slow, it may be because the system forces the evaluation of the function. Consider switching the execution method to `threaded` or `process`
     """
-    def __init__(self, func: Callable[..., Any], func_args: Iterable[Any], func_kwargs: Mapping[str, Any], instance, return_type: Union[Callable[[], None]], store_results: bool = False, *args, **kwargs) -> None:
+    def __init__(self, func: Callable[..., Any], func_args: Iterable[Any], func_kwargs: Mapping[str, Any], instance, return_type: Union[Callable[[], None], Type], store_results: bool = False, *args, **kwargs) -> None:
         self.func = func
         self.args = func_args
         self.kwargs = func_kwargs
@@ -40,20 +53,26 @@ class execution():
         else:
             self._base_storage = return_type
 
-        self.instances = defaultdict(self._base_storage)
+        self.instances = []
+        self.mapping = defaultdict(self._base_storage)
 
         self.add_instance(instance)
 
     def fetch(self, identifier) -> Any:
         raise NotImplementedError
 
-    def add_instance(self, o):
-        self.instances[o] = self._base_storage()
+    def add_instance(self, o) -> None:
+        self.instances.append(o)
+        self.mapping[id(o)] = self._base_storage()
+
+    def start(self) -> None:
+        return
 
     @staticmethod
-    def procure(tile, executed: str = "native", *args, **kwargs):
+    def procure(tile, executed: str = "native", *args, **kwargs) -> None:
         for e in _existing_executions:
             if e == _tmp_exec(executed, *args, **kwargs):
+                logging.debug("Found a similar task. Grouping them together")
                 e.add_instance(tile)
                 return e
 
@@ -79,11 +98,11 @@ class native_execution(execution):
         result = self.func(*self.args, **self.kwargs)
 
         if type(self._base_storage) != type(None) and "append" in self._base_storage.__dict__:
-            self.instances[identifier].append(result)
+            self.mapping[id(identifier)].append(result)
         else:
-            self.instances[identifier] = result
+            self.mapping[id(identifier)] = result
 
-        return self.instances[identifier]
+        return self.mapping[id(identifier)]
 
 class concurrent_execution(execution):
     def __init__(self, *args, **kwargs) -> None:
@@ -92,42 +111,45 @@ class concurrent_execution(execution):
 
         super(concurrent_execution, self).__init__(*args, **kwargs)
 
-    def add_instance(self, o):
+    def add_instance(self, o) -> None:
         assert self.started == False, "Cannot add a new instance once the concurrent execution has started."
         super(concurrent_execution, self).add_instance(o)
 
-    def start(self):
+    def start(self) -> None:
+        assert self.started == False, "Cannot start concurrent execution twice."
         self.started = True
 
-        remote = None
-        queue = None
+        logging.info(f"Starting concurrent execution of function {self.func} with arguments {self.args} and keyword arguments {self.kwargs}")
+
         if isinstance(self, thread_execution):
-            remote = th.Thread
-            queue = qu.Queue
+            self.remote = th.Thread
+            self.queue = qu.Queue()
         elif isinstance(self, process_execution):
-            remote = mp.Process
-            queue = mp.Queue
+            self.remote = mp.Process
+            self.queue = mp.Queue()
+        else:
+            raise NotImplementedError
 
-        self.queue = queue()
-        # "Instances": [k for k, v in self.instances.items()], 
-        self.kwargs.update({"func": self.func, "Sched": sc.scheduler([(a ,b) for x in self.instances for a, b in x.timing()]), "Queue": self.queue})
+        self.kwargs.update({"func": self.func, "queue": self.queue, "sched": sc.scheduler([(a, id(b)) for x in self.instances for a, b in x.timing()])})
 
-        self.remote = remote(target=_module_executor, args=self.args, kwargs=self.kwargs, daemon=True)
+        self.remote = self.remote(target=_module_executor, args=self.args, kwargs=self.kwargs, daemon=True)
 
         self.remote.start()
 
     def fetch(self, identifier) -> Any:
         assert self.started == True, "Cannot fetch data before the concurrent execution has started."
 
-        while not self.queue.empty():
-            e = self.queue.get()
-            if type(self._base_storage) != type(None) and "append" in self._base_storage.__dict__:
-                self.instances[e[0]].append(e[1])
-            else:
-                self.instances[e[0]] = e[1]
+        try:
+            while not self.queue.empty():
+                e: message = self.queue.get()
+                if type(self._base_storage) != type(None) and "append" in self._base_storage.__dict__:
+                    self.mapping[e.identifier].append(e.value)
+                else:
+                    self.mapping[e.identifier] = e.value
 
-
-        return self.instances[identifier]
+            return self.mapping[id(identifier)]
+        except BaseException as e:
+            logging.critical(f"Exception occured between processes with pids {os.getpid()} and {self.remote.pid}:\n{e}")
 
 class thread_execution(concurrent_execution):
     def __init__(self, *args, **kwargs) -> None:

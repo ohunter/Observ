@@ -120,7 +120,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-na",
         "--no_active",
-        help="Deactivates tile activation",
+        help="Deactivates navigation of tiles with the arrow keys",
         action="store_true"
     )
 

@@ -392,43 +392,52 @@ class realtime_tile(tile):
         super(realtime_tile, self).__init__(*args, **kwargs)
         self.module = rt.execution.procure(self, *args, **kwargs)
 
-    # def render(self, term: bl.Terminal) -> None:
-    #     start_pos, end_pos = super(realtime_tile, self).render(term)
-
-class time_tile(realtime_tile):
+class time_tile(line_tile, realtime_tile):
     def __init__(self, *args, **kwargs) -> None:
-        kwargs.update({"func": time.time, "func_args": [], "func_kwargs": {}, "return_type": float})
+        kwargs.update({"func": time.time, "func_args": [], "func_kwargs": {}, "return_type": float, "text": ""})
         super(time_tile, self).__init__(*args, **kwargs)
 
     def render(self, term: bl.Terminal) -> None:
-        start_pos, end_pos = super(time_tile, self).render(term)
-
-        cur = f"{self.module.fetch(self):.3f}"
-
-        x = (end_pos[0] - start_pos[0]) // 2 - len(cur)//2 + start_pos[0]
-        y = (end_pos[1] - start_pos[1]) // 2 + start_pos[1]
-        with term.location(x, y):
-            print(cur)
+        self.text = f"{self.module.fetch(self):.3f}"
+        super(time_tile, self).render(term)
 
     @staticmethod
     def from_conf(conf: dict):
         return time_tile(**conf)
 
+class ctime_tile(line_tile, realtime_tile):
+    def __init__(self, *args, **kwargs) -> None:
+        kwargs.update({"func": time.ctime, "func_args": [], "func_kwargs": {}, "return_type": float, "text": ""})
+        super(ctime_tile, self).__init__(*args, **kwargs)
+
+    def render(self, term: bl.Terminal) -> None:
+        self.text = self.module.fetch(self)
+        super(ctime_tile, self).render(term)
+
+    @staticmethod
+    def from_conf(conf: dict):
+        return ctime_tile(**conf)
+
 class cpu_tile(realtime_tile):
     def __init__(self, *args, **kwargs) -> None:
-        kwargs.update({"func": mo.CPU, "func_args": [], "func_kwargs": {"files": ["/proc/stat"]}, "return_type": list, "initial": [0] * os.cpu_count()})
+        kwargs.update({"func": mo.CPU, "func_args": [], "func_kwargs": {"files": ["/proc/stat"]}, "return_type": list, "initial": [(0, 0)] * os.cpu_count(), "store_results": True})
         super(cpu_tile, self).__init__(*args, **kwargs)
 
     def render(self, term: bl.Terminal) -> None:
         start_pos, end_pos = super(cpu_tile, self).render(term)
 
+        printable_width = end_pos[0] - start_pos[0]
+        printable_height = end_pos[1] - start_pos[1]
+
         out = self.module.fetch(self)
         while len(out) > 2:
             out.pop(0)
 
-        import pdb; pdb.set_trace()
-
         cur = [(cl-ll)/(ct-lt) * 100 for (ll, lt), (cl, ct) in zip(*out)]
+
+        strs = [f"Core {i} : {x:5.1f}%" for i, x in enumerate(cur)]
+
+        import pdb; pdb.set_trace()
 
     @staticmethod
     def from_conf(conf: dict):
@@ -444,6 +453,7 @@ _tile_dict = {
     "line": line_tile,
     "text": text_tile,
     "time": time_tile,
+    "ctime": ctime_tile,
     "cpu": cpu_tile
 }
 

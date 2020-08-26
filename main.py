@@ -12,11 +12,13 @@ import tiles as ti
 import sched as sc
 
 class screen():
-    def __init__(self, conf: Mapping[str, Any]) -> None:
+    def __init__(self, conf: Mapping[str, Any], no_active: bool = True) -> None:
         self.term = bl.Terminal()
+        self.no_active = no_active
 
         self.root: ti.tile = ti.tile.from_conf(conf["screen"])
-        self.active = self.root.select((0,0), self.term)
+        if not self.no_active:
+            self.active = self.root.select((0,0), self.term)
 
         self.sched = sc.scheduler(self.root.timing())
 
@@ -37,7 +39,7 @@ class screen():
                     if inp in ["q", "Q"]:
                         logging.info("Exit input recieved. Terminating...")
                         return
-                    elif inp.name in ["KEY_UP", "KEY_DOWN", "KEY_LEFT", "KEY_RIGHT"]:
+                    elif not self.no_active and inp.name in ["KEY_UP", "KEY_DOWN", "KEY_LEFT", "KEY_RIGHT"]:
                         # Note: Once Python 3.9 comes out switch to using `math.nextafter` to figure out the next tile in a direction
                         pos = (self.active.origin[0] + (self.active.offset[0] - self.active.origin[0])/2, self.active.origin[1] + (self.active.offset[1] - self.active.origin[1])/2)
                         delta = ((self.active.offset[0] - self.active.origin[0])/2 + 0.1, (self.active.offset[1] - self.active.origin[1])/2 + 0.1)
@@ -74,7 +76,7 @@ def main(args: argparse.Namespace) -> None:
         config = json.load(fi)
 
     logging.info("Creating screen layout")
-    scr = screen(config)
+    scr = screen(config, args.no_active)
 
     scr.run()
 
@@ -113,6 +115,13 @@ if __name__ == "__main__":
         type=int,
         default=0,
         help="The level the logger will output for. Corresponds to 1/10 of the logging levels for python. Only works if the log flag is given."
+    )
+
+    parser.add_argument(
+        "-na",
+        "--no_active",
+        help="Deactivates tile activation",
+        action="store_true"
     )
 
     args = parser.parse_args()

@@ -1,3 +1,4 @@
+import copy
 import logging
 import multiprocessing as mp
 import os
@@ -5,7 +6,6 @@ import queue as qu
 import sched as sc
 import threading as th
 import time
-from collections import defaultdict
 from typing import Any, Callable, Iterable, List, Mapping, NamedTuple, Type, Union
 
 
@@ -48,13 +48,18 @@ class execution():
         self.args = func_args
         self.kwargs = func_kwargs
 
+        self._base_storage = None
         if store_results:
-            self._base_storage = list
+            self._base_storage = []
+            if initial:
+                self._base_storage.append(initial)
+        elif initial:
+            self._base_storage = initial
         else:
-            self._base_storage = return_type
+            self._base_storage = return_type()
 
         self.instances = []
-        self.mapping = defaultdict(self._base_storage)
+        self.mapping = {}
 
         self.add_instance(instance)
 
@@ -63,7 +68,7 @@ class execution():
 
     def add_instance(self, o) -> None:
         self.instances.append(o)
-        self.mapping[id(o)] = self._base_storage()
+        self.mapping[id(o)] = copy.deepcopy(self._base_storage)
 
     def start(self) -> None:
         return
@@ -141,16 +146,18 @@ class concurrent_execution(execution):
 
         try:
             while not self.queue.empty():
-                e: message = self.queue.get()
-                if type(self._base_storage) != type(None) and "append" in self._base_storage.__dict__:
+                e: message = self.queue.get_nowait()
+                if "append" in dir(self._base_storage):
                     self.mapping[e.identifier].append(e.value)
                 else:
                     self.mapping[e.identifier] = e.value
 
-
             return self.mapping[id(identifier)]
         except BaseException as e:
-            logging.critical(f"Exception occured between processes with pids {os.getpid()} and {self.remote.pid}:\n{e}")
+            if isinstance(self, thread_execution):
+                logging.critical(f"Exception occured between threads with thread ids {th.main_thread().getName()} and {self.remote.getName()}:\n{e}")
+            elif isinstance(self, process_execution):
+                logging.critical(f"Exception occured between processes with pids {os.getpid()} and {self.remote.pid}:\n{e}")
 
 class thread_execution(concurrent_execution):
     def __init__(self, *args, **kwargs) -> None:

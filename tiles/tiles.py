@@ -89,7 +89,6 @@ class tile():
         with term.location(*start_pos):
             print (top + "".join([middle, reset] * displacement[1]) + bot, end="")
 
-
     def move(self, delta: Tuple[float, float]) -> None:
         """
         Moves the tile to in the direction of the vector given
@@ -463,10 +462,6 @@ class cpu_tile(realtime_tile):
     @staticmethod
     def from_conf(conf: dict):
         return cpu_tile(**conf)
-
-class rt_line_tile(realtime_tile):
-    def __init__(self, *args, **kwargs) -> None:
-        super(realtime_tile, self).__init__(*args, **kwargs)
 
 _tile_dict = {
     "tiled": split,

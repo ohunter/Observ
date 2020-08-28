@@ -1,8 +1,8 @@
 import math
 import os
 import time
-from itertools import accumulate, chain, zip_longest
-from typing import Iterable, Tuple, Union
+from itertools import accumulate, chain, zip_longest, permutations
+from typing import Iterable, Tuple, Union, List
 
 import blessed as bl
 
@@ -12,6 +12,9 @@ from . import realtime as rt
                     # T    B    L    R    TL   TR    BL   BR
 active_border =     ["━", "━", "┃", "┃", "┏", "┓", "┗", "┛"]
 passive_border =    ["─", "─", "│", "│", "┌", "┐", "└", "┘"]
+
+def _divisors(val: int) -> List[int]:
+    return [i for i in range(1, val+1) if val % i == 0]
 
 # Note: Not a great implementation as it sort of assumes that the border will be made up of UTF-8 characters and that the title wont
 def _overlay(s1: str, s2: str, char=" ") -> str:
@@ -86,12 +89,6 @@ class tile():
         with term.location(*start_pos):
             print (top + "".join([middle, reset] * displacement[1]) + bot, end="")
 
-        if self.border:
-            return (start_pos[0]-1, start_pos[1]-1), (end_pos[0]-1, end_pos[1]-1)
-        elif self.title:
-            return (start_pos[0], start_pos[1]-1), end_pos
-
-        return start_pos, end_pos
 
     def move(self, delta: Tuple[float, float]) -> None:
         """
@@ -110,6 +107,9 @@ class tile():
         else:
             self.origin = (scale * self.origin[0], scale * self.origin[1])
             self.offset = (scale * self.offset[0], scale * self.offset[1])
+
+
+        self.compute_printing_region()
 
     def _base_str(self) -> str:
         return f"{type(self)} @ {self.origin} -> {self.offset}"
@@ -142,6 +142,8 @@ class tile():
 
         with term.location(*start_pos):
             print(term.move_down(1).join([filler] * displacement[1]))
+
+        self.compute_printing_region()
 
         self.render(term)
 
@@ -187,6 +189,9 @@ class tile():
             self.module.start()
         else:
             return
+
+    def compute_printing_region(self) -> None:
+        raise NotImplementedError
 
     @staticmethod
     def from_conf(conf: dict):
@@ -249,6 +254,9 @@ class split(tile):
 
     def timing(self) -> Iterable[float]:
         return [y for x in self.sections for y in x.timing()]
+
+    def compute_printing_region(self) -> None:
+        [x.compute_printing_region() for x in self.sections]
 
     def __str__(self) -> str:
         strs = [f"{self._base_str()} | splits: {self.splits}"]
@@ -321,6 +329,9 @@ class tabbed(tile):
     def deselect(self, term) -> None:
         [x.deselect(term) for x in self.tabs]
 
+    def compute_printing_region(self) -> None:
+        [x.compute_printing_region() for x in self.tabs]
+
     def __str__(self) -> str:
         strs = [f"{self._base_str()} | splits: {self.splits}"]
         strs.extend([str(x) for x in self.tabs])
@@ -358,11 +369,16 @@ class line_tile(tile):
         self.text = text
 
     def render(self, term: bl.Terminal) -> None:
-        start_pos, end_pos = super(line_tile, self).render(term)
-        x = (end_pos[0] - start_pos[0]) // 2 - len(self.text)//2 + start_pos[0]
-        y = (end_pos[1] - start_pos[1]) // 2 + start_pos[1]
+        super(line_tile, self).render(term)
+        x = int(self.print_x * term.width) - len(self.text)//2
+        y = int(self.print_y * term.height)
+
         with term.location(x, y):
             print(self.text)
+
+    def compute_printing_region(self) -> None:
+        self.print_x = (self.origin[0] + self.offset[0])/2
+        self.print_y = (self.origin[1] + self.offset[1])/2
 
     def __str__(self) -> str:
         return f"{self._base_str()} | text: {self.text}"
@@ -370,22 +386,6 @@ class line_tile(tile):
     @staticmethod
     def from_conf(conf: dict):
         return line_tile(**conf)
-
-class text_tile(tile):
-    def __init__(self, text: str, *args, **kwargs) -> None:
-        super(text_tile, self).__init__(*args, **kwargs)
-        self.text = text
-
-    def render(self, term: bl.Terminal) -> None:
-        super(text_tile, self).render(term)
-        start_pos = (round(self.origin[0] * term.width), round(self.origin[1] * term.height))
-        end_pos = (round(self.offset[0] * term.width), round(self.offset[1] * term.height))
-
-        pass
-
-    @staticmethod
-    def from_conf(conf: dict):
-        return text_tile(**conf)
 
 class realtime_tile(tile):
     def __init__(self, *args, **kwargs) -> None:
@@ -424,20 +424,41 @@ class cpu_tile(realtime_tile):
         super(cpu_tile, self).__init__(*args, **kwargs)
 
     def render(self, term: bl.Terminal) -> None:
-        start_pos, end_pos = super(cpu_tile, self).render(term)
-
-        printable_width = end_pos[0] - start_pos[0]
-        printable_height = end_pos[1] - start_pos[1]
+        super(cpu_tile, self).render(term)
 
         out = self.module.fetch(self)
         while len(out) > 2:
             out.pop(0)
 
-        cur = [(cl-ll)/(ct-lt) * 100 for (ll, lt), (cl, ct) in zip(*out)]
+        cur = [(cl-ll)/max(ct-lt, 1) * 100 for (ll, lt), (cl, ct) in zip(*out)]
+        num_core_width = math.ceil(math.log10(os.cpu_count()+0.1))
+        strs = [f"Core {str(i).rjust(num_core_width)}: {x:5.1f}%" for i, x in enumerate(cur)]
 
-        strs = [f"Core {i} : {x:5.1f}%" for i, x in enumerate(cur)]
+        for (_x, _y), s in zip(self.print_pos, strs):
+            x, y = int(_x * term.width) - len(s)//2, int(_y * term.height)
+            with term.location(x, y):
+                print(s)
 
-        import pdb; pdb.set_trace()
+    def compute_printing_region(self) -> None:
+        k = os.cpu_count()
+
+        N = self.offset[0] - self.origin[0]
+        M = self.offset[1] - self.origin[1]
+
+        divisors = _divisors(os.cpu_count())
+        target_ratio = N / M
+        ratios = [(a, b, a/b) for a,b in permutations(divisors, 2) if a * b == k]
+        ratio = ratios[0]
+
+        for a, b, c in ratios[1:]:
+            ratio = (a, b, c) if abs(target_ratio - c) < abs(target_ratio - ratio[2]) else ratio
+
+        pos_x = [N / ratio[0] * i for i in range(ratio[0]+1)]
+        pos_x = [(a+b)/2 + self.origin[0] for a, b in zip(pos_x[:-1], pos_x[1:])]
+        pos_y = [M / ratio[1] * i for i in range(ratio[1]+1)]
+        pos_y = [(a+b)/2 + self.origin[1] for a, b in zip(pos_y[:-1], pos_y[1:])]
+
+        self.print_pos = [(x, y) for x in pos_x for y in pos_y]
 
     @staticmethod
     def from_conf(conf: dict):
@@ -451,22 +472,7 @@ _tile_dict = {
     "tiled": split,
     "tabbed": tabbed,
     "line": line_tile,
-    "text": text_tile,
     "time": time_tile,
     "ctime": ctime_tile,
     "cpu": cpu_tile
 }
-
-# _active_modules: List[rt.execution_state] = []
-
-# _module_dict: Mapping[Callable[[], None], Tuple[Union[th.Thread, mp.Process, cf.Executor], th.Event, bool]] = {
-
-# }
-
-# _resource_dict:dict[str, str] = {
-
-# }
-
-# _thread_dict: dict[Callable[[Iterable], None], Tuple[Union[th.Thread, mp.Process, cf.Executor], th.Event, bool]] = {
-
-# }

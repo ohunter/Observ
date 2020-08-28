@@ -98,14 +98,15 @@ class execution():
 class native_execution(execution):
     def __init__(self, *args, **kwargs) -> None:
         super(native_execution, self).__init__(*args, **kwargs)
+        self.started = True
 
     def fetch(self, identifier) -> Any:
-        result = self.func(*self.args, **self.kwargs)
+        value = self.func(*self.args, **self.kwargs)
 
-        if type(self._base_storage) != type(None) and "append" in self._base_storage.__dict__:
-            self.mapping[id(identifier)].append(result)
+        if "append" in dir(self._base_storage):
+            self.mapping[identifier].append(value)
         else:
-            self.mapping[id(identifier)] = result
+            self.mapping[identifier] = value
 
         return self.mapping[id(identifier)]
 

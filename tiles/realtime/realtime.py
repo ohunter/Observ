@@ -104,9 +104,9 @@ class native_execution(execution):
         value = self.func(*self.args, **self.kwargs)
 
         if "append" in dir(self._base_storage):
-            self.mapping[identifier].append(value)
+            self.mapping[id(identifier)].append(value)
         else:
-            self.mapping[identifier] = value
+            self.mapping[id(identifier)] = value
 
         return self.mapping[id(identifier)]
 

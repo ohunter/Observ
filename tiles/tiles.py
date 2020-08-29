@@ -134,7 +134,7 @@ class tile():
         middle: str = " " + term.move_right(self.dimensions.x-2) + " "
         bot:    str = " " * (self.dimensions.x)
 
-        reset = term.move_left(self.dimensions.x + 2) + term.move_down(1)
+        reset = term.move_left(self.dimensions.x) + term.move_down(1)
 
         if self.border or self.title:
 
@@ -536,7 +536,6 @@ class plot_tile(realtime_tile):
         while len(self.history) >= self.dimensions.x:
             self.history.pop(0)
             self._raw_history.pop(0)
-
 
     def plot(self, term: bl.Terminal):
         decimal, integer = math.modf(self.history[-1]*100)

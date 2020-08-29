@@ -1,17 +1,28 @@
 import math
 import os
 import time
-from itertools import accumulate, chain, zip_longest, permutations
-from typing import Iterable, Tuple, Union, List, Type
+from itertools import accumulate, chain, permutations, zip_longest
+from typing import Iterable, List, Tuple, Type, Union
 
 import blessed as bl
 
 import modules as mo
+
 from . import realtime as rt
 
                     # T    B    L    R    TL   TR    BL   BR
 active_border =     ["━", "━", "┃", "┃", "┏", "┓", "┗", "┛"]
 passive_border =    ["─", "─", "│", "│", "┌", "┐", "└", "┘"]
+
+def min_diff(_iter: Iterable[float], val) -> float:
+    diff = float("inf")
+    key = -1
+    for x in _iter:
+        if abs(val - x) < diff:
+            key = x
+            diff = abs(val - x)
+
+    return key
 
 def _rotate_strings(_iter: Iterable[str]) -> Iterable[str]:
     return ["".join(x) for x in zip(*_iter)][::-1]
@@ -109,9 +120,6 @@ class tile():
         else:
             self.border = None
             self._original_border = None
-
-    def __contains__(self, position: Tuple[float, float]) -> bool:
-        return position[0] >= self.origin[0] and position[0] <= self.offset[0] and position[1] >= self.origin[1] and position[1] <= self.offset[1]
 
     def render(self, term: bl.Terminal) -> None:
         """
@@ -241,7 +249,10 @@ class tile():
             return
 
     def compute_printing_region(self) -> None:
-        raise NotImplementedError
+        return
+
+    def __contains__(self, position: Tuple[float, float]) -> bool:
+        return position[0] >= self.origin[0] and position[0] <= self.offset[0] and position[1] >= self.origin[1] and position[1] <= self.offset[1]
 
     @staticmethod
     def from_conf(conf: dict):
@@ -423,9 +434,6 @@ class line_tile(tile):
         with term.location(*self.start_loc + self.dimensions/2 - (len(self.text)//2, 0)):
             print(self.text, end="")
 
-    def compute_printing_region(self) -> None:
-        return
-
     def __str__(self) -> str:
         return f"{self._base_str()} | text: {self.text}"
 
@@ -510,31 +518,54 @@ class cpu_tile(realtime_tile):
     def from_conf(conf: dict):
         return cpu_tile(**conf)
 
-class cpu_load_tile(realtime_tile):
+class plot_tile(realtime_tile):
     def __init__(self, *args, **kwargs) -> None:
-        kwargs.update({"func": mo.CPU_LOAD, "func_args": [], "func_kwargs": {"files": ["/proc/stat"]}, "return_type": list, "initial": (0, 0), "store_results": True})
+        self._raw_history = []
+        self._line_history = []
+        self.history = []
+        super(plot_tile, self).__init__(*args, **kwargs)
+
+    def render(self, term: bl.Terminal) -> None:
+        super(plot_tile, self).render(term)
+
+        while len(self._line_history) < self.dimensions.x-1:
+            self._line_history.append(" " * self.dimensions.y)
+        while len(self._line_history) >= self.dimensions.x:
+            self._line_history.pop(0)
+
+        while len(self.history) >= self.dimensions.x:
+            self.history.pop(0)
+            self._raw_history.pop(0)
+
+
+    def plot(self, term: bl.Terminal):
+        decimal, integer = math.modf(self.history[-1]*100)
+        s = f"{'█' * int(integer/100*self.dimensions.y)}" + _line_subdivisions[min_diff(range(9), decimal)/8]
+        s = s.ljust(self.dimensions.y)
+        self._line_history.append(s)
+
+        vert_lines = _rotate_strings(self._line_history)
+
+        self.text = f"{term.move_left(self.dimensions.x) + term.move_down(1)}".join(vert_lines)
+
+class cpu_load_tile(plot_tile):
+    def __init__(self, *args, **kwargs) -> None:
+        kwargs.update({"func": mo.CPU_LOAD, "func_args": [], "func_kwargs": {"files": ["/proc/stat"]}, "return_type": float, "initial": (0, 0)})
         super(cpu_load_tile, self).__init__(*args, **kwargs)
+        self._raw_history.append((0, 0))
 
     def render(self, term: bl.Terminal) -> None:
         super(cpu_load_tile, self).render(term)
 
-        out = self.module.fetch(self)
-        while len(out) > int(self.print_w * term.width):
-            out.pop(0)
+        self._raw_history.append(self.module.fetch(self))
+        last = self._raw_history[-2]
+        cur = self._raw_history[-1]
+        self.history.append((cur[0]-last[0])/max(cur[1]-last[1], 1))
 
-        load_pairs = [(a, b) for a, b in zip(out[:-1], out[1:])]
-        history = [(0.0, 0)] * (self.dimensions.x - len(load_pairs)) + [math.modf((fl-sl)/max(ft-st, 1)*100) for ((sl, st), (fl, ft)) in load_pairs]
-        history = [(a, b/100) for a,b in history]
-
-        horz_lines = [f"{'█' * int(b*self.dimensions.y)}".ljust(self.dimensions.y) for a, b in history]
-        vert_lines = _rotate_strings(horz_lines)
+        super(cpu_load_tile, self).plot(term)
 
         with term.location(*self.start_loc):
-            print(f"{term.move_left(self.dimensions.x) + term.move_down(1)}".join(vert_lines), end="")
-
-    def compute_printing_region(self) -> None:
-        self.print_w = self.offset[0] - self.origin[0]
-        self.print_h = self.offset[1] - self.origin[1]
+            print(self.text, end="")
 
     @staticmethod
     def from_conf(conf: dict):

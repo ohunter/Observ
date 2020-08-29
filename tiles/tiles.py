@@ -2,7 +2,7 @@ import math
 import os
 import time
 from itertools import accumulate, chain, zip_longest, permutations
-from typing import Iterable, Tuple, Union, List
+from typing import Iterable, Tuple, Union, List, Type
 
 import blessed as bl
 
@@ -13,6 +13,9 @@ from . import realtime as rt
 active_border =     ["━", "━", "┃", "┃", "┏", "┓", "┗", "┛"]
 passive_border =    ["─", "─", "│", "│", "┌", "┐", "└", "┘"]
 
+def _rotate_strings(_iter: Iterable[str]) -> Iterable[str]:
+    return ["".join(x) for x in zip(*_iter)][::-1]
+
 def _divisors(val: int) -> List[int]:
     return [i for i in range(1, val+1) if val % i == 0]
 
@@ -22,6 +25,55 @@ def _overlay(s1: str, s2: str, char=" ") -> str:
     A function to overlay two strings on top of each other.
     """
     return "".join([min(x, y) if min(x,y) != char else max(x,y) for x, y in zip_longest(s1, s2, fillvalue=char)])
+
+class _Position():
+    def __init__(self, x: int = 0, y: int = 0) -> None:
+        self.x = x
+        self.y = y
+
+    def __add__(self, o: Union[int, Tuple[int, int], Type]):
+        if isinstance(o, int):
+            return _Position(self.x + o, self.y + o)
+        elif isinstance(o, Tuple):
+            return _Position(self.x + o[0], self.y + o[1])
+        elif type(self) == type(o):
+            return _Position(self.x + o.x, self.y + o.y)
+
+    def __sub__(self, o: Union[int, Tuple[int, int], Type]):
+        if isinstance(o, int):
+            return _Position(self.x - o, self.y - o)
+        elif isinstance(o, Tuple):
+            return _Position(self.x - o[0], self.y - o[1])
+        elif type(self) == type(o):
+            return _Position(self.x - o.x, self.y - o.y)
+
+    def __floordiv__(self, o: Union[int, Tuple[int, int], Type]):
+        if isinstance(o, int):
+            return _Position(self.x // o, self.y // o)
+        elif isinstance(o, Tuple):
+            return _Position(self.x // o[0], self.y // o[1])
+        elif type(self) == type(o):
+            return _Position(self.x // o.x, self.y // o.y)
+
+    def __truediv__(self, o: Union[int, Tuple[int, int], Type]):
+        return self//o
+
+    def __eq__(self, o: Union[Tuple[int, int], Type]) -> bool:
+        if isinstance(o, Tuple):
+            return self.x == o[0] and self.y == o[1]
+        elif type(self) == type(o):
+            return self.x == o.x and self.y == o.y
+
+    def __ne__(self, o: Union[Tuple[int, int], Type]) -> bool:
+        return not self == o
+
+    def __str__(self) -> str:
+        return f"{(self.x, self.y)}"
+
+    def __iter__(self):
+        tmp = [self.x, self.y]
+        for v in tmp:
+            yield v
 
 class tile():
     """
@@ -65,29 +117,37 @@ class tile():
         """
         Draws the relevant information to the tile's location in the terminal
         """
-        start_pos = (round(self.origin[0] * term.width), round(self.origin[1] * term.height))
-        end_pos = (round(self.offset[0] * term.width), round(self.offset[1] * term.height))
+        self.start_loc = start_loc = _Position(round(self.origin[0] * term.width), round(self.origin[1] * term.height))
+        end_loc = _Position(round(self.offset[0] * term.width), round(self.offset[1] * term.height))
 
-        displacement = (end_pos[0] - start_pos[0] - 2, end_pos[1] - start_pos[1] - 2)
-        reset = term.move_left(displacement[0] + 2) + term.move_down(1)
+        self.dimensions = end_loc - start_loc
 
-        top:    str = " " * (displacement[0]+2)
-        middle: str = " " + term.move_right(displacement[0]) + " "
-        bot:    str = " " * (displacement[0]+2)
+        top:    str = " " * (self.dimensions.x)
+        middle: str = " " + term.move_right(self.dimensions.x-2) + " "
+        bot:    str = " " * (self.dimensions.x)
 
-        if self.border:
-            top = self.border[4] + self.border[0] * displacement[0] + self.border[5]
-            middle = self.border[2] + term.move_right(displacement[0]) + self.border[3]
-            bot = self.border[6] + self.border[1] * displacement[0] + self.border[7]
-
-        if self.title:
-            top = _overlay(top, self.title.center(displacement[0] + 2))
+        reset = term.move_left(self.dimensions.x + 2) + term.move_down(1)
 
         if self.border or self.title:
+
+            self.start_loc += 1
+            self.dimensions = end_loc - self.start_loc
+
+            if self.border:
+                end_loc -= 1
+                self.dimensions = end_loc - self.start_loc
+
+                top = self.border[4] + self.border[0] * (self.dimensions.x) + self.border[5]
+                middle = self.border[2] + term.move_right((self.dimensions.x)) + self.border[3]
+                bot = self.border[6] + self.border[1] * (self.dimensions.x) + self.border[7]
+
+            if self.title:
+                top = _overlay(top, self.title.center(self.dimensions.x))
+
             top += reset
 
-        with term.location(*start_pos):
-            print (top + "".join([middle, reset] * displacement[1]) + bot, end="")
+        with term.location(*start_loc):
+            print (top + "".join([middle, reset] * self.dimensions.y) + bot, end="")
 
     def move(self, delta: Tuple[float, float]) -> None:
         """
@@ -133,14 +193,10 @@ class tile():
         """
         Forces a complete redraw of the tile ensuring that all the content is overwritten
         """
-        start_pos = (round(self.origin[0] * term.width), round(self.origin[1] * term.height))
-        end_pos = (round(self.offset[0] * term.width), round(self.offset[1] * term.height))
-        displacement = (end_pos[0] - start_pos[0], end_pos[1] - start_pos[1])
+        filler = " " * self.dimensions.x + term.move_left(self.dimensions.x)
 
-        filler = " " * displacement[0] + term.move_left(displacement[0])
-
-        with term.location(*start_pos):
-            print(term.move_down(1).join([filler] * displacement[1]))
+        with term.location(*self.start_pos):
+            print(term.move_down(1).join([filler] * self.dimensions.y), end="")
 
         self.compute_printing_region()
 
@@ -150,10 +206,10 @@ class tile():
         return [(self.frequency, self)]
 
     def _update_edges(self, term) -> None:
-        start_pos = (round(self.origin[0] * term.width), round(self.origin[1] * term.height))
-        end_pos = (round(self.offset[0] * term.width), round(self.offset[1] * term.height))
+        self.start_loc = start_loc = _Position(round(self.origin[0] * term.width), round(self.origin[1] * term.height))
+        end_loc = _Position(round(self.offset[0] * term.width), round(self.offset[1] * term.height))
 
-        displacement = (end_pos[0] - start_pos[0] - 2, end_pos[1] - start_pos[1] - 2)
+        displacement = (end_loc[0] - start_loc[0] - 2, end_loc[1] - start_loc[1] - 2)
         reset = term.move_left(displacement[0] + 2) + term.move_down(1)
 
         top:    str = " " * (displacement[0]+2)
@@ -171,13 +227,8 @@ class tile():
         if self.border or self.title:
             top += reset
 
-        with term.location(*start_pos):
+        with term.location(*start_loc):
             print (top + "".join([middle, reset] * displacement[1]) + bot, end="")
-
-        if self.border:
-            return (start_pos[0]-1, start_pos[1]-1), (end_pos[0]-1, end_pos[1]-1)
-        elif self.title:
-            return (start_pos[0], start_pos[1]-1), end_pos
 
     def start_concurrent(self) -> None:
         if isinstance(self, split):
@@ -369,15 +420,11 @@ class line_tile(tile):
 
     def render(self, term: bl.Terminal) -> None:
         super(line_tile, self).render(term)
-        x = int(self.print_x * term.width) - len(self.text)//2
-        y = int(self.print_y * term.height)
-
-        with term.location(x, y):
-            print(self.text)
+        with term.location(*self.start_loc + self.dimensions/2 - (len(self.text)//2, 0)):
+            print(self.text, end="")
 
     def compute_printing_region(self) -> None:
-        self.print_x = (self.origin[0] + self.offset[0])/2
-        self.print_y = (self.origin[1] + self.offset[1])/2
+        return
 
     def __str__(self) -> str:
         return f"{self._base_str()} | text: {self.text}"
@@ -436,7 +483,7 @@ class cpu_tile(realtime_tile):
         for (_x, _y), s in zip(self.print_pos, strs):
             x, y = int(_x * term.width) - len(s)//2, int(_y * term.height)
             with term.location(x, y):
-                print(s)
+                print(s, end="")
 
     def compute_printing_region(self) -> None:
         k = os.cpu_count()
@@ -463,11 +510,55 @@ class cpu_tile(realtime_tile):
     def from_conf(conf: dict):
         return cpu_tile(**conf)
 
+class cpu_load_tile(realtime_tile):
+    def __init__(self, *args, **kwargs) -> None:
+        kwargs.update({"func": mo.CPU_LOAD, "func_args": [], "func_kwargs": {"files": ["/proc/stat"]}, "return_type": list, "initial": (0, 0), "store_results": True})
+        super(cpu_load_tile, self).__init__(*args, **kwargs)
+
+    def render(self, term: bl.Terminal) -> None:
+        super(cpu_load_tile, self).render(term)
+
+        out = self.module.fetch(self)
+        while len(out) > int(self.print_w * term.width):
+            out.pop(0)
+
+        load_pairs = [(a, b) for a, b in zip(out[:-1], out[1:])]
+        history = [(0.0, 0)] * (self.dimensions.x - len(load_pairs)) + [math.modf((fl-sl)/max(ft-st, 1)*100) for ((sl, st), (fl, ft)) in load_pairs]
+        history = [(a, b/100) for a,b in history]
+
+        horz_lines = [f"{'█' * int(b*self.dimensions.y)}".ljust(self.dimensions.y) for a, b in history]
+        vert_lines = _rotate_strings(horz_lines)
+
+        with term.location(*self.start_loc):
+            print(f"{term.move_left(self.dimensions.x) + term.move_down(1)}".join(vert_lines), end="")
+
+    def compute_printing_region(self) -> None:
+        self.print_w = self.offset[0] - self.origin[0]
+        self.print_h = self.offset[1] - self.origin[1]
+
+    @staticmethod
+    def from_conf(conf: dict):
+        return cpu_load_tile(**conf)
+
+
 _tile_dict = {
     "tiled": split,
     "tabbed": tabbed,
     "line": line_tile,
     "time": time_tile,
     "ctime": ctime_tile,
-    "cpu": cpu_tile
+    "cpu": cpu_tile,
+    "cpu load": cpu_load_tile,
+}
+
+_line_subdivisions = {
+    0/8: " ",
+    1/8: "▁",
+    2/8: "▂",
+    3/8: "▃",
+    4/8: "▄",
+    5/8: "▅",
+    6/8: "▆",
+    7/8: "▇",
+    8/8: "█",
 }

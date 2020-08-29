@@ -24,6 +24,14 @@ def CPU(files: Mapping[str, TextIOWrapper], *args, **kwargs) -> List[Tuple[float
 
     return [(x, t) for x, t in zip(cl, ct)]
 
+def CPU_LOAD(files: Mapping[str, TextIOWrapper], *args, **kwargs) -> Tuple[float, float]:
+    data = files["/proc/stat"]
+    data.seek(0)
+
+    loads = [float(x) for x in data.readline().split()[1:]]
+
+    return (loads[0]+loads[2], loads[0]+loads[2]+loads[3])
+
 class message():
     def __init__(self, message: str, x: int = 0, y: int = 0, typ: str = "msg") -> None:
         self.x = x
@@ -370,5 +378,15 @@ class module():
     """
 
 if __name__ == "__main__":
-    tmp_q = queue.Queue()
-    module("HDD", tmp_q, 58, 30, False, 1)
+    kwargs = {
+        'files': {"/proc/stat": open("/proc/stat")}
+    }
+    history = [(0, 0)] * 10
+    while 1:
+        history.append(CPU_LOAD(**kwargs))
+        while len(history) > 10:
+            history.pop(0)
+        load_pairs = [(a, b) for a, b in zip(history[:-1], history[1:])]
+        loads = [(fl-sl)/max(ft-st, 1) for ((sl, st), (fl, ft)) in load_pairs]
+        print (loads)
+        time.sleep(1)

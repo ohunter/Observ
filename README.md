@@ -27,7 +27,7 @@ The `partitions` object is the more complex object of the two. It states in what
 
 Describes how the partitions are going to be displayed. It has two accepted values, `"tiled"` and `"tabbed"`. If `"tiled"` then the program will split the area between all the different tiles it is in control over. If `"tabbed"` the area will only display one screen, but it allow for navigation between the different tiles altogether.
 
- `screens`
+##### `screens`
 
 This field is an array of the different objects the partitioning will be in control over. Each object here can be it's own `tile` object or another partition.
 
@@ -50,7 +50,6 @@ The `tile` object is the simplest of the objects as it contains a singular modul
 | `module` | False | All | `N/A` | See below |
 | `border` | True | All | False | True, False, or an array of all the different characters in the border |
 | `title` | True | All | `""` | Any string |
-| `text` | False | `line` or `body` | `""` | Any string |
 | `frequency` | True | Dynamic modules | 1 | Any integer |
 | `executed` | True | Dynamic modules | `"native"` | `"native"`, `"thread"`, or `"process"` |
 
@@ -66,9 +65,6 @@ Describes how the area shall be decorated if anything.
 
 Describes a string which will be placed at the top of the area.
 
-##### `text`
-
-The content of the area.
 
 ##### `frequency`
 
@@ -82,21 +78,25 @@ This describes how the module will be evaluated. If `"native"` the function will
 
 There are a variety of different modules available. Some of them are static and some are dynamic. They can be found here:
 
-##### Static
+##### Time
 
-###### Line
+Mainly for debugging purposes, Displays a single line of text. That line is updated with the current amount of seconds since [Epoch](https://en.wikipedia.org/wiki/Epoch_(computing)).
 
-This module is mainly meant debug different things within the program. It simply displays a line of text that never changes in the center of the area.
+##### Ctime
 
-###### Body
+Mainly for debugging purposes, Displays a single line of text with a formatted representation of the current time.
 
-This module is mainly meant debug different things within the program. It simply displays a multi-line string that never changes that is centered to the best of it's ability.
+##### CPU
 
-##### Dynamic
+Displays a per core CPU load since the last time it queried the system.
 
-###### Time
+##### CPU Load
 
-Mainly for debugging purposes, although much like the line module it displays a single line of text. That line is updated with the current amount of seconds since [Epoch](https://en.wikipedia.org/wiki/Epoch_(computing)).
+Shows an overall history of the activity of the processor.
+
+##### RAM
+
+Displays how much of the system's memory is free, available, and in use. Also displays how much memory there is in general.
 
 ### Sample configuration
 
@@ -106,22 +106,65 @@ Mainly for debugging purposes, although much like the line module it displays a 
     "partitions": {
       "type": "tiled",
       "orientation": "vertical",
-      "screens":[
+      "screens": [
         {
-          "module": "time",
+          "module": "ctime",
           "border": true,
-          "frequency": 2,
-          "executed": "process"
+          "frequency": 1,
+          "executed": "thread"
         },
         {
-          "module": "time",
-          "border": false,
-          "frequency": 1000,
-          "executed": "thread"
+          "partitions": {
+            "type": "tiled",
+            "orientation": "vertical",
+            "screens": [
+              {
+                "partitions": {
+                  "type": "tiled",
+                  "orientation": "vertical",
+                  "screens": [
+                    {
+                      "module": "cpu",
+                      "border": true,
+                      "frequency": 1,
+                      "executed": "thread"
+                    },
+                    {
+                      "module": "cpu load",
+                      "border": true,
+                      "frequency": 5,
+                      "executed": "thread"
+                    }
+                  ]
+                }
+              },
+              {
+                "partitions": {
+                  "type": "tiled",
+                  "orientation": "horizontal",
+                  "screens": [
+                    {
+                      "module": "ram",
+                      "border": true,
+                      "frequency": 1,
+                      "executed": "thread"
+                    },
+                    {
+                      "module": "ram load",
+                      "border": true,
+                      "frequency": 5,
+                      "executed": "thread"
+                    }
+                  ]
+                }
+              }
+            ]
+          }
         }
       ],
-      "splits": []
+      "splits": [0.05]
     }
   }
 }
+
 ```

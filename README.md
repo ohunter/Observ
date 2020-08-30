@@ -45,13 +45,13 @@ The `tile` object is the simplest of the objects as it contains a singular modul
 
 #### tile Fields
 
-| Field Name | Optional | Applies to | Default | Options |
-|---|---|---|---|---|
-| `module` | False | All | `N/A` | See below |
-| `border` | True | All | False | True, False, or an array of all the different characters in the border |
-| `title` | True | All | `""` | Any string |
-| `frequency` | True | Dynamic modules | 1 | Any integer |
-| `executed` | True | Dynamic modules | `"native"` | `"native"`, `"thread"`, or `"process"` |
+| Field Name | Optional | Default | Options |
+|---|---|---|---|
+| `module` | False | `N/A` | See below |
+| `border` | True | False | True, False, or an array of all the different characters in the border |
+| `title` | True | `""` | Any string |
+| `frequency` | True | 1 | Any integer |
+| `executed` | True | `"native"` | `"native"`, `"thread"`, or `"process"` |
 
 ##### `module`
 

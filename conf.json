@@ -1,57 +1,72 @@
 {
   "screen": {
-    "name": "root",
-    "subdivisions": {
+    "partitions": {
       "type": "tiled",
       "orientation": "vertical",
       "screens": [
         {
-          "name": "A",
-          "delta": 0.3,
-          "subdivisions": {
-            "type": "tiled",
-            "orientation": "horizontal",
-            "screens": [
-              {
-                "name": "C",
-                "module": "CPU",
-                "frequency": 10,
-                "delta": 0.2
-              },
-              {
-                "name": "C",
-                "module": "CPU_LOAD",
-                "frequency": 10
-              }
-            ]
-          }
+          "module": "ctime",
+          "border": true,
+          "frequency": 1,
+          "executed": "thread"
         },
         {
-          "name": "B",
-          "subdivisions": {
+          "partitions": {
             "type": "tiled",
-            "orientation": "horizontal",
+            "orientation": "vertical",
             "screens": [
               {
-                "name": "A",
-                "module": "RAM",
-                "frequency": 10,
-                "delta": 0.7
+                "partitions": {
+                  "type": "tiled",
+                  "orientation": "horizontal",
+                  "screens": [
+                    {
+                      "module": "cpu",
+                      "border": true,
+                      "frequency": 1,
+                      "executed": "thread",
+                      "title": "CPU Utilization"
+                    },
+                    {
+                      "module": "cpu load",
+                      "border": true,
+                      "frequency": 10,
+                      "executed": "thread",
+                      "title": "CPU Utilization History"
+                    }
+                  ],
+                  "splits": [0.4]
+                }
               },
               {
-                "name": "B",
-                "module": "RAM_LOAD",
-                "frequency": 10
+                "partitions": {
+                  "type": "tiled",
+                  "orientation": "horizontal",
+                  "screens": [
+                    {
+                      "module": "ram",
+                      "border": true,
+                      "frequency": 1,
+                      "executed": "thread",
+                      "title": "Memory Utilization"
+                    },
+                    {
+                      "module": "ram load",
+                      "border": true,
+                      "frequency": 2,
+                      "executed": "thread",
+                      "title": "Memory Utilization History"
+                    }
+                  ],
+                  "splits": [0.25]
+                }
               }
-            ]
+            ],
+            "splits": [0.6]
           }
-        },
-        {
-          "name": "D",
-          "delta": 0.4,
-          "module": "SWAP"
         }
-      ]
+      ],
+      "splits": [0.05]
     }
   }
 }

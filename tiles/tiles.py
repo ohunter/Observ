@@ -1,7 +1,7 @@
 import math
 import os
 import time
-from itertools import accumulate, chain, permutations, zip_longest
+from itertools import accumulate, chain, product, zip_longest
 from typing import Any, Iterable, List, Mapping, Tuple, Type, Union
 
 import blessed as bl
@@ -457,7 +457,9 @@ class multi_line_tile(tile):
 
         divisors = _divisors(num)
         target_ratio = N / M
-        ratios = [(a, b, a/b) for a,b in permutations(divisors, 2) if a * b == num]
+
+        ratios = [(a, b, a/b) for a,b in product(divisors, repeat=2) if a * b == num]
+
         ratio = ratios[0]
 
         for a, b, c in ratios[1:]:

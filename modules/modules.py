@@ -1,11 +1,7 @@
-from io import TextIOWrapper
 import math
-import multiprocessing as mp
-import threading as th
-import os
-import queue
 import time
-from typing import Any, Callable, Iterable, List, Mapping, Tuple, TypedDict, Union
+from io import TextIOWrapper
+from typing import List, Mapping, Tuple, Union
 
 size_list = ["B", "k", "M", "G", "T", "P"]
 
@@ -32,7 +28,7 @@ def CPU_LOAD(files: Mapping[str, TextIOWrapper], *args, **kwargs) -> Tuple[float
 
     return (loads[0]+loads[2], loads[0]+loads[2]+loads[3])
 
-def RAM(files: Mapping[str, TextIOWrapper], *args, **kwargs) -> Tuple[float, str, float, str]:
+def RAM(files: Mapping[str, TextIOWrapper], *args, **kwargs) -> Tuple[Tuple[float, str], Tuple[float, str], Tuple[float, str], Tuple[float, str]]:
     data = files["/proc/meminfo"]
     data.seek(0)
 
@@ -40,21 +36,31 @@ def RAM(files: Mapping[str, TextIOWrapper], *args, **kwargs) -> Tuple[float, str
     for i in range(3):
         loads.append([float(x) if j % 2 == 0 else x for j, x in enumerate(data.readline().split()[1:])])
 
-    usage = loads[0][0] - loads[2][0] * 1000 ** (size_list.index(loads[0][1][0]) - size_list.index(loads[2][1][0]))
-    cur = usage / loads[0][0] * 100
+    usage = loads[0][0] - loads[2][0] * 1024 ** (size_list.index(loads[0][1][0]) - size_list.index(loads[2][1][0]))
 
     ui = size_list.index(loads[2][1][0])
     ui += math.floor(math.log10(usage)/3)
-    usage /= 1000 ** (ui-size_list.index(loads[2][1][0]))
+    usage /= 1024 ** (ui-size_list.index(loads[2][1][0]))
+
+    free = loads[1][0]
+
+    fi = size_list.index(loads[1][1][0])
+    fi += math.floor(math.log10(free)/3)
+    free /= 1024 ** (ui-size_list.index(loads[1][1][0]))
+
+    avail = loads[2][0]
+
+    ai = size_list.index(loads[2][1][0])
+    ai += math.floor(math.log10(avail)/3)
+    avail /= 1024 ** (ui-size_list.index(loads[2][1][0]))
 
     ti = size_list.index(loads[0][1][0])
     ti += math.floor(math.log10(loads[0][0])/3)
-    loads[0][0] /= 1000 ** (ti-size_list.index(loads[0][1][0]))
+    loads[0][0] /= 1024 ** (ti-size_list.index(loads[0][1][0]))
 
-    size_w = math.ceil(math.log10(loads[0][0])) + 3
+    return [(free, size_list[fi]), (usage, size_list[ui]), (avail, size_list[ai]), (loads[0][0], size_list[ti])]
 
-    total = round(loads[0][0], 2)
-    used = round(usage, 2)
+
     #     if module_name == "RAM":
     #         self.data = open("/proc/meminfo", "r")
     #         self.func = self.RAM
@@ -247,14 +253,8 @@ def RAM(files: Mapping[str, TextIOWrapper], *args, **kwargs) -> Tuple[float, str
 
 if __name__ == "__main__":
     kwargs = {
-        'files': {"/proc/stat": open("/proc/stat")}
+        'files': {"/proc/meminfo": open("/proc/meminfo")}
     }
-    history = [(0, 0)] * 10
     while 1:
-        history.append(CPU_LOAD(**kwargs))
-        while len(history) > 10:
-            history.pop(0)
-        load_pairs = [(a, b) for a, b in zip(history[:-1], history[1:])]
-        loads = [(fl-sl)/max(ft-st, 1) for ((sl, st), (fl, ft)) in load_pairs]
-        print (loads)
+        print(RAM(**kwargs))
         time.sleep(1)

@@ -2,7 +2,7 @@ import math
 import os
 import time
 from itertools import accumulate, chain, permutations, zip_longest
-from typing import Iterable, List, Tuple, Type, Union
+from typing import Any, Iterable, List, Mapping, Tuple, Type, Union
 
 import blessed as bl
 
@@ -39,8 +39,8 @@ def _overlay(s1: str, s2: str, char=" ") -> str:
 
 class _Position():
     def __init__(self, x: int = 0, y: int = 0) -> None:
-        self.x = x
-        self.y = y
+        self.x = round(x)
+        self.y = round(y)
 
     def __add__(self, o: Union[int, Tuple[int, int], Type]):
         if isinstance(o, int):
@@ -175,9 +175,6 @@ class tile():
             self.origin = (scale * self.origin[0], scale * self.origin[1])
             self.offset = (scale * self.offset[0], scale * self.offset[1])
 
-
-        self.compute_printing_region()
-
     def _base_str(self) -> str:
         return f"{type(self)} @ {self.origin} -> {self.offset}"
 
@@ -203,10 +200,8 @@ class tile():
         """
         filler = " " * self.dimensions.x + term.move_left(self.dimensions.x)
 
-        with term.location(*self.start_pos):
+        with term.location(*self.start_loc):
             print(term.move_down(1).join([filler] * self.dimensions.y), end="")
-
-        self.compute_printing_region()
 
         self.render(term)
 
@@ -248,14 +243,11 @@ class tile():
         else:
             return
 
-    def compute_printing_region(self) -> None:
-        return
-
     def __contains__(self, position: Tuple[float, float]) -> bool:
         return position[0] >= self.origin[0] and position[0] <= self.offset[0] and position[1] >= self.origin[1] and position[1] <= self.offset[1]
 
     @staticmethod
-    def from_conf(conf: dict):
+    def from_conf(conf: Mapping[str, Any]):
         root = None
 
         if "partitions" in conf:
@@ -313,11 +305,17 @@ class split(tile):
     def deselect(self, term) -> None:
         [x.deselect(term) for x in self.sections]
 
+    def redraw(self, term: bl.Terminal) -> None:
+        """
+        Forces a complete redraw of the tile ensuring that all the content is overwritten
+        """
+        for t in self.sections:
+            t.redraw(term)
+
+        self.render(term)
+
     def timing(self) -> Iterable[float]:
         return [y for x in self.sections for y in x.timing()]
-
-    def compute_printing_region(self) -> None:
-        [x.compute_printing_region() for x in self.sections]
 
     def __str__(self) -> str:
         strs = [f"{self._base_str()} | splits: {self.splits}"]
@@ -331,7 +329,7 @@ class split(tile):
             return False
 
     @staticmethod
-    def from_conf(conf: dict):
+    def from_conf(conf: Mapping[str, Any]):
         tiles = []
 
         for s in conf["screens"]:
@@ -390,9 +388,6 @@ class tabbed(tile):
     def deselect(self, term) -> None:
         [x.deselect(term) for x in self.tabs]
 
-    def compute_printing_region(self) -> None:
-        [x.compute_printing_region() for x in self.tabs]
-
     def __str__(self) -> str:
         strs = [f"{self._base_str()} | splits: {self.splits}"]
         strs.extend([str(x) for x in self.tabs])
@@ -408,7 +403,7 @@ class tabbed(tile):
         pass
 
     @staticmethod
-    def from_conf(conf: dict):
+    def from_conf(conf: Mapping[str, Any]):
         tiles = []
 
         for s in conf["screens"]:
@@ -437,9 +432,43 @@ class line_tile(tile):
     def __str__(self) -> str:
         return f"{self._base_str()} | text: {self.text}"
 
-    @staticmethod
-    def from_conf(conf: dict):
-        return line_tile(**conf)
+class multi_line_tile(tile):
+    def __init__(self, num_lines, *args, **kwargs) -> None:
+        super(multi_line_tile, self).__init__(*args, **kwargs)
+        self.positions = []
+        self._num_lines = num_lines
+
+    def render(self, term: bl.Terminal) -> None:
+        super(multi_line_tile, self).render(term)
+
+    def move(self, delta: Tuple[float, float]) -> None:
+        super(multi_line_tile, self).move(delta)
+
+        self.distribute_lines(self._num_lines)
+
+    def scale(self, scale: Union[Tuple[float, float], float]) -> None:
+        super(multi_line_tile, self).scale(scale)
+
+        self.distribute_lines(self._num_lines)
+
+    def distribute_lines(self, num: int) -> None:
+        N = self.offset[0] - self.origin[0]
+        M = self.offset[1] - self.origin[1]
+
+        divisors = _divisors(num)
+        target_ratio = N / M
+        ratios = [(a, b, a/b) for a,b in permutations(divisors, 2) if a * b == num]
+        ratio = ratios[0]
+
+        for a, b, c in ratios[1:]:
+            ratio = (a, b, c) if abs(target_ratio - c) < abs(target_ratio - ratio[2]) else ratio
+
+        pos_x = [N / ratio[0] * i for i in range(ratio[0]+1)]
+        pos_x = [(a+b)/2 + self.origin[0] for a, b in zip(pos_x[:-1], pos_x[1:])]
+        pos_y = [M / ratio[1] * i for i in range(ratio[1]+1)]
+        pos_y = [(a+b)/2 + self.origin[1] for a, b in zip(pos_y[:-1], pos_y[1:])]
+
+        self.positions = [(x, y) for x in pos_x for y in pos_y]
 
 class realtime_tile(tile):
     def __init__(self, *args, **kwargs) -> None:
@@ -456,7 +485,7 @@ class time_tile(line_tile, realtime_tile):
         super(time_tile, self).render(term)
 
     @staticmethod
-    def from_conf(conf: dict):
+    def from_conf(conf: Mapping[str, Any]):
         return time_tile(**conf)
 
 class ctime_tile(line_tile, realtime_tile):
@@ -469,12 +498,12 @@ class ctime_tile(line_tile, realtime_tile):
         super(ctime_tile, self).render(term)
 
     @staticmethod
-    def from_conf(conf: dict):
+    def from_conf(conf: Mapping[str, Any]):
         return ctime_tile(**conf)
 
-class cpu_tile(realtime_tile):
+class cpu_tile(multi_line_tile, realtime_tile):
     def __init__(self, *args, **kwargs) -> None:
-        kwargs.update({"func": mo.CPU, "func_args": [], "func_kwargs": {"files": ["/proc/stat"]}, "return_type": list, "initial": [(0, 0)] * os.cpu_count(), "store_results": True})
+        kwargs.update({"num_lines": os.cpu_count(), "func": mo.CPU, "func_args": [], "func_kwargs": {"files": ["/proc/stat"]}, "return_type": list, "initial": [(0, 0)] * os.cpu_count(), "store_results": True})
         super(cpu_tile, self).__init__(*args, **kwargs)
 
     def render(self, term: bl.Terminal) -> None:
@@ -488,34 +517,13 @@ class cpu_tile(realtime_tile):
         num_core_width = math.ceil(math.log10(os.cpu_count()+0.1))
         strs = [f"Core {str(i).rjust(num_core_width)}: {x:5.1f}%" for i, x in enumerate(cur)]
 
-        for (_x, _y), s in zip(self.print_pos, strs):
-            x, y = int(_x * term.width) - len(s)//2, int(_y * term.height)
-            with term.location(x, y):
+        for (_x, _y), s in zip(self.positions, strs):
+            pos = _Position(_x * term.width, _y * term.height) - (len(s)//2, 0)
+            with term.location(*pos):
                 print(s, end="")
 
-    def compute_printing_region(self) -> None:
-        k = os.cpu_count()
-
-        N = self.offset[0] - self.origin[0]
-        M = self.offset[1] - self.origin[1]
-
-        divisors = _divisors(os.cpu_count())
-        target_ratio = N / M
-        ratios = [(a, b, a/b) for a,b in permutations(divisors, 2) if a * b == k]
-        ratio = ratios[0]
-
-        for a, b, c in ratios[1:]:
-            ratio = (a, b, c) if abs(target_ratio - c) < abs(target_ratio - ratio[2]) else ratio
-
-        pos_x = [N / ratio[0] * i for i in range(ratio[0]+1)]
-        pos_x = [(a+b)/2 + self.origin[0] for a, b in zip(pos_x[:-1], pos_x[1:])]
-        pos_y = [M / ratio[1] * i for i in range(ratio[1]+1)]
-        pos_y = [(a+b)/2 + self.origin[1] for a, b in zip(pos_y[:-1], pos_y[1:])]
-
-        self.print_pos = [(x, y) for x in pos_x for y in pos_y]
-
     @staticmethod
-    def from_conf(conf: dict):
+    def from_conf(conf: Mapping[str, Any]):
         return cpu_tile(**conf)
 
 class plot_tile(realtime_tile):
@@ -538,8 +546,8 @@ class plot_tile(realtime_tile):
             self._raw_history.pop(0)
 
     def plot(self, term: bl.Terminal):
-        decimal, integer = math.modf(self.history[-1]*100)
-        s = f"{'█' * int(integer/100*self.dimensions.y)}" + _line_subdivisions[min_diff(range(9), decimal)/8]
+        decimal, integer = math.modf(self.history[-1]*self.dimensions.y)
+        s = f"{'█' * int(integer)}" + _line_subdivisions[min_diff(range(9), decimal)/8]
         s = s.ljust(self.dimensions.y)
         self._line_history.append(s)
 
@@ -567,18 +575,41 @@ class cpu_load_tile(plot_tile):
             print(self.text, end="")
 
     @staticmethod
-    def from_conf(conf: dict):
+    def from_conf(conf: Mapping[str, Any]):
         return cpu_load_tile(**conf)
 
+
+class ram_tile(multi_line_tile, realtime_tile):
+    def __init__(self, *args, **kwargs) -> None:
+        kwargs.update({"num_lines": 4, "func": mo.RAM, "func_args": [], "func_kwargs": {"files": ["/proc/meminfo"]}, "return_type": tuple, "initial": ((0, ""), (0, ""), (0, ""))})
+        super(ram_tile, self).__init__(*args, **kwargs)
+
+    def render(self, term: bl.Terminal) -> None:
+        super(ram_tile, self).render(term)
+
+        out = self.module.fetch(self)
+
+        names = ["Free:", "In Use:", "Available:", "Total:"]
+
+        strs = [f"{_type.ljust(max([len(x) for x in names]))} {x:.2f} {size + 'B' if size != 'B' else size}" for _type, (x, size) in zip(names, out)]
+
+        for (_x, _y), s in zip(self.positions, strs):
+            pos = _Position(_x * term.width, _y * term.height) - (len(s)//2, 0)
+            with term.location(*pos):
+                print(s, end="")
+
+    @staticmethod
+    def from_conf(conf: Mapping[str, Any]):
+        return ram_tile(**conf)
 
 _tile_dict = {
     "tiled": split,
     "tabbed": tabbed,
-    "line": line_tile,
     "time": time_tile,
     "ctime": ctime_tile,
     "cpu": cpu_tile,
     "cpu load": cpu_load_tile,
+    "ram": ram_tile,
 }
 
 _line_subdivisions = {

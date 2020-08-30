@@ -541,9 +541,13 @@ class plot_tile(realtime_tile):
         while len(self._line_history) >= self.dimensions.x:
             self._line_history.pop(0)
 
+        while len(self._raw_history) < self.dimensions.x-1:
+            self._raw_history.append((0, 0))
+        while len(self._raw_history) >= self.dimensions.x:
+            self._raw_history.pop(0)
+
         while len(self.history) >= self.dimensions.x:
             self.history.pop(0)
-            self._raw_history.pop(0)
 
     def plot(self, term: bl.Terminal):
         decimal, integer = math.modf(self.history[-1]*self.dimensions.y)
@@ -602,6 +606,28 @@ class ram_tile(multi_line_tile, realtime_tile):
     def from_conf(conf: Mapping[str, Any]):
         return ram_tile(**conf)
 
+class ram_load_tile(plot_tile):
+    def __init__(self, *args, **kwargs) -> None:
+        kwargs.update({"func": mo.RAM_LOAD, "func_args": [], "func_kwargs": {"files": ["/proc/meminfo"]}, "return_type": float})
+        super(ram_load_tile, self).__init__(*args, **kwargs)
+        self._raw_history.append((0, 0))
+
+    def render(self, term: bl.Terminal) -> None:
+        super(ram_load_tile, self).render(term)
+
+        self.history.append(self.module.fetch(self))
+
+        super(ram_load_tile, self).plot(term)
+
+        with term.location(*self.start_loc):
+            print(self.text, end="")
+
+    @staticmethod
+    def from_conf(conf: Mapping[str, Any]):
+        return ram_load_tile(**conf)
+
+
+
 _tile_dict = {
     "tiled": split,
     "tabbed": tabbed,
@@ -610,6 +636,7 @@ _tile_dict = {
     "cpu": cpu_tile,
     "cpu load": cpu_load_tile,
     "ram": ram_tile,
+    "ram load": ram_load_tile,
 }
 
 _line_subdivisions = {

@@ -60,112 +60,17 @@ def RAM(files: Mapping[str, TextIOWrapper], *args, **kwargs) -> Tuple[Tuple[floa
 
     return [(free, size_list[fi]), (usage, size_list[ui]), (avail, size_list[ai]), (loads[0][0], size_list[ti])]
 
+def RAM_LOAD(files: Mapping[str, TextIOWrapper], *args, **kwargs) -> float:
+    data = files["/proc/meminfo"]
+    data.seek(0)
 
-    #     if module_name == "RAM":
-    #         self.data = open("/proc/meminfo", "r")
-    #         self.func = self.RAM
-    #     elif module_name == "RAM_LOAD":
-    #         self.data = open("/proc/meminfo", "r")
-    #         self.func = self.RAM_LOAD
-    #         self.history = [" " * self.prnt_h] * self.prnt_w
-    #     elif module_name == "SWAP":
-    #         self.data = open("/proc/meminfo", "r")
-    #         self.func = self.SWAP
-    #     elif module_name == "HDD":
-    #         self.data = open("/proc/diskstats", "r")
-    #         self.func = self.HDD
+    loads = []
+    for i in range(3):
+        loads.append([float(x) if j % 2 == 0 else x for j, x in enumerate(data.readline().split()[1:])])
 
+    usage = loads[0][0] - loads[2][0] * 1000 ** (size_list.index(loads[0][1][0]) - size_list.index(loads[2][1][0]))
 
-    #     self.run(rate, self.func)
-
-    # def run(self, rate, func):
-    #     def tick():
-    #         t = time.time()
-    #         cnt = 0
-    #         while 1:
-    #             cnt += 1
-    #             yield max(t + cnt/rate - time.time(),0)
-
-    #     gen = tick()
-    #     while 1:
-    #         func()
-    #         time.sleep(next(gen))
-
-    def RAM(self):
-        try:
-            self.data.seek(0)
-
-            loads = []
-            for i in range(3):
-                loads.append([float(x) if j % 2 == 0 else x for j, x in enumerate(self.data.readline().split()[1:])])
-
-            usage = loads[0][0] - loads[2][0] * 1000 ** (size_list.index(loads[0][1][0]) - size_list.index(loads[2][1][0]))
-            cur = usage / loads[0][0] * 100
-
-            ui = size_list.index(loads[2][1][0])
-            ui += math.floor(math.log10(usage)/3)
-            usage /= 1000 ** (ui-size_list.index(loads[2][1][0]))
-
-            ti = size_list.index(loads[0][1][0])
-            ti += math.floor(math.log10(loads[0][0])/3)
-            loads[0][0] /= 1000 ** (ti-size_list.index(loads[0][1][0]))
-
-            size_w = math.ceil(math.log10(loads[0][0])) + 3
-
-            total = round(loads[0][0], 2)
-            used = round(usage, 2)
-
-            strs = f"RAM: {cur:5.1f}% {str(used).rjust(size_w)} {size_list[ui]}B / {str(total).rjust(size_w)} {size_list[ti]}B"
-
-            # Horizontal centering is already computed since there is only one string
-
-            # Vertical centering
-
-            vert_pad = self.prnt_h - 1
-            top_pad = vert_pad // 2
-            bot_pad = vert_pad - top_pad
-
-            msg = "".join(["\n"] * top_pad + [strs.center(self.prnt_w)] + ["\n"] * bot_pad)
-
-            if __name__ == "__main__":
-                print (msg)
-            else:
-                self.queue.put(message(msg, self.init_x, self.init_y))
-        except BaseException as e:
-            if __name__ == "__main__":
-                print(f"Exception occured: {e}")
-                import pdb; pdb.set_trace()
-            else:
-                self.queue.put(message(f"Exception occured: {e}", typ="log"))
-
-    # def RAM_LOAD(self):
-    #     try:
-    #         self.data.seek(0)
-
-    #         loads = []
-    #         for i in range(3):
-    #             loads.append([float(x) if j % 2 == 0 else x for j, x in enumerate(self.data.readline().split()[1:])])
-
-    #         usage = loads[0][0] - loads[2][0] * 1000 ** (size_list.index(loads[0][1][0]) - size_list.index(loads[2][1][0]))
-    #         cur = math.modf(usage / loads[0][0] * self.prnt_h)
-    #         full = '█' * int(cur[1])
-
-    #         self.history.append(f"{full}".ljust(self.prnt_h, " "))
-
-    #         if len(self.history) > self.prnt_w:
-    #             del self.history[0]
-
-    #         msg = "\n".join(reversed(["".join(x) for x in zip(*self.history)]))
-    #         if __name__ == "__main__":
-    #             print (msg)
-    #         else:
-    #             self.queue.put(message(msg, self.init_x, self.init_y))
-    #     except BaseException as e:
-    #         if __name__ == "__main__":
-    #             print(f"Exception occured: {e}")
-    #             import pdb; pdb.set_trace()
-    #         else:
-    #             self.queue.put(message(f"Exception occured: {e}", typ="log"))
+    return usage / loads[0][0]
 
     # def SWAP(self):
     #     try:

@@ -98,6 +98,10 @@ Shows an overall history of the activity of the processor.
 
 Displays how much of the system's memory is free, available, and in use. Also displays how much memory there is in general.
 
+##### RAM Load
+
+Shows an overall history of the usage of the system memory.
+
 ### Sample configuration
 
 ```json

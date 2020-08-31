@@ -1,0 +1,72 @@
+{
+  "screen": {
+    "partitions": {
+      "type": "tiled",
+      "orientation": "vertical",
+      "screens": [
+        {
+          "module": "ctime",
+          "border": true,
+          "frequency": 1,
+          "executed": "thread"
+        },
+        {
+          "partitions": {
+            "type": "tiled",
+            "orientation": "vertical",
+            "screens": [
+              {
+                "partitions": {
+                  "type": "tiled",
+                  "orientation": "horizontal",
+                  "screens": [
+                    {
+                      "module": "cpu",
+                      "border": true,
+                      "frequency": 1,
+                      "executed": "thread",
+                      "title": "CPU Utilization"
+                    },
+                    {
+                      "module": "cpu load",
+                      "border": true,
+                      "frequency": 10,
+                      "executed": "thread",
+                      "title": "CPU Utilization History"
+                    }
+                  ],
+                  "splits": [0.4]
+                }
+              },
+              {
+                "partitions": {
+                  "type": "tiled",
+                  "orientation": "horizontal",
+                  "screens": [
+                    {
+                      "module": "ram",
+                      "border": true,
+                      "frequency": 1,
+                      "executed": "thread",
+                      "title": "Memory Utilization"
+                    },
+                    {
+                      "module": "ram load",
+                      "border": true,
+                      "frequency": 2,
+                      "executed": "thread",
+                      "title": "Memory Utilization History"
+                    }
+                  ],
+                  "splits": [0.25]
+                }
+              }
+            ],
+            "splits": [0.6]
+          }
+        }
+      ],
+      "splits": [0.05]
+    }
+  }
+}

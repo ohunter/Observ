@@ -1,4 +1,4 @@
-# Observ
+![The logo](https://github.com/ohunter/Observ/blob/master/observ_logo.png)
 
 A simple curses based system monitor similar to that of glances and htop
 

@@ -1,7 +1,7 @@
 import math
 import time
 from io import TextIOWrapper
-from typing import List, Mapping, Tuple, Union
+from typing import List, Mapping, Tuple
 
 size_list = ["B", "k", "M", "G", "T", "P"]
 

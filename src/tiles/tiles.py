@@ -146,7 +146,7 @@ class tile():
                 self.dimensions = end_loc - self.start_loc
 
                 top = self.border[4] + self.border[0] * (self.dimensions.x) + self.border[5]
-                middle = self.border[2] + term.move_right((self.dimensions.x)) + self.border[3]
+                middle = self.border[2] + term.move_right(self.dimensions.x) + self.border[3]
                 bot = self.border[6] + self.border[1] * (self.dimensions.x) + self.border[7]
 
             if self.title:

@@ -2,6 +2,12 @@
 
 A simple curses based system monitor similar to that of glances and htop
 
+## Sample
+
+![A simple example](https://github.com/ohunter/Observ/Example.gif)
+
+**NB:** *Please excuse the seemingly poor performance in the example above. My laptop wasn't too happy with recording it. Unless you set the frequency of a module to be absurd the system impact should be marginal.*
+
 ## Requirements
 
 - [Blessed](https://github.com/jquast/blessed)
@@ -103,6 +109,8 @@ Displays how much of the system's memory is free, available, and in use. Also di
 Shows an overall history of the usage of the system memory.
 
 ### Sample configuration
+
+The configuration below can be seen in the GIF at the start of the readme.
 
 ```json
 {

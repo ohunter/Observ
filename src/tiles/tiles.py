@@ -7,8 +7,7 @@ from typing import Any, Iterable, List, Mapping, Tuple, Type, Union
 import blessed as bl
 
 import modules as mo
-
-from . import realtime as rt
+import realtime as rt
 
                     # T    B    L    R    TL   TR    BL   BR
 active_border =     ["━", "━", "┃", "┃", "┏", "┓", "┗", "┛"]

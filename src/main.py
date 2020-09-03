@@ -60,7 +60,7 @@ def main(args: argparse.Namespace) -> None:
         config = json.load(fi)
 
     logging.info("Creating screen layout")
-    scr = screen(config, args.no_active)
+    scr = screen(config)
 
     scr.run()
 

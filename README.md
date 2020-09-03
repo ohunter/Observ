@@ -11,6 +11,7 @@ A simple curses based system monitor similar to that of glances and htop
 ## Requirements
 
 - [Blessed](https://github.com/jquast/blessed)
+- [Bottle](https://github.com/bottlepy/bottle) *(Only needed if you plan using the web server feature)*
 - [Debugpy](https://github.com/microsoft/debugpy) *(Only needed if you plan on running with the `--debug` flag)*
 
 ## Arguments

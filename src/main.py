@@ -50,19 +50,29 @@ def main(args: argparse.Namespace) -> None:
     config: dict
     scr: screen
 
-    def sig_resize(sig, action) -> None:
-        scr.redraw()
-
-    signal.signal(SIGWINCH, sig_resize)
-
     logging.info("Loading configuration file")
     with open(args.config) as fi:
         config = json.load(fi)
 
-    logging.info("Creating screen layout")
-    scr = screen(config)
+    if args.web:
+        import bottle as bo
 
-    scr.run()
+        @bo.route("/")
+        def web_server():
+            return ""
+
+        bo.run(host="localhost", port=args.web, debug=True, reloader=True)
+
+    else:
+        def sig_resize(sig, action) -> None:
+            scr.redraw()
+
+        signal.signal(SIGWINCH, sig_resize)
+
+        logging.info("Creating screen layout")
+        scr = screen(config)
+
+        scr.run()
 
 
 if __name__ == "__main__":
@@ -109,6 +119,15 @@ if __name__ == "__main__":
         help="Opens a port and waits for a debugger to attach to the process using debugpy. If no additional argument is specified, the default port is 42069"
     )
 
+    parser.add_argument(
+        "-w",
+        "--web",
+        type=int,
+        nargs='?',
+        const=42420,
+        help="Opens a web server with the specified port. On a local machine the address would be 127.0.0.1 followed by the specified port. If no additional argument is specified, the default port is 42069"
+    )
+
     args = parser.parse_args()
 
     args.log_level = 0 if not args.log_level else args.log_level
@@ -125,4 +144,5 @@ if __name__ == "__main__":
 
     logging.info("Starting application")
     logging.info(f"Using configuration located at {os.path.abspath(args.config)}")
+
     main(args)

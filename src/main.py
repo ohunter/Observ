@@ -101,6 +101,14 @@ if __name__ == "__main__":
         help="The level the logger will output for. Corresponds to 1/10 of the logging levels for python. Only works if the log flag is given."
     )
 
+    parser.add_argument(
+        "--debug",
+        type=int,
+        nargs='?',
+        const=42069,
+        help="Opens a port and waits for a debugger to attach to the process using debugpy. If no additional argument is specified, the default port is 42069"
+    )
+
     args = parser.parse_args()
 
     args.log_level = 0 if not args.log_level else args.log_level
@@ -109,6 +117,11 @@ if __name__ == "__main__":
         logging.basicConfig(level=args.log_level * 10, filename=args.log, filemode='w', format='%(asctime)s [%(levelname)s]\t%(message)s', datefmt='%d-%b-%y %H:%M:%S')
     else:
         logging.basicConfig(level=logging.CRITICAL+1)
+
+    if args.debug:
+        import debugpy
+        debugpy.listen(('127.0.0.1', args.debug))
+        debugpy.wait_for_client()
 
     logging.info("Starting application")
     logging.info(f"Using configuration located at {os.path.abspath(args.config)}")

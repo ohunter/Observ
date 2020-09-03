@@ -10,7 +10,6 @@ import modules as mo
 import realtime as rt
 
                     # T    B    L    R    TL   TR    BL   BR
-active_border =     ["━", "━", "┃", "┃", "┏", "┓", "┗", "┛"]
 passive_border =    ["─", "─", "│", "│", "┌", "┐", "└", "┘"]
 
 def min_diff(_iter: Iterable[float], val) -> float:
@@ -124,6 +123,44 @@ class tile():
         """
         Draws the relevant information to the tile's location in the terminal
         """
+        self._update_edges(term)
+
+    def move(self, delta: Tuple[float, float]) -> None:
+        """
+        Moves the tile to in the direction of the vector given
+        """
+        self.origin = (self.origin[0] + delta[0], self.origin[1] + delta[1])
+        self.offset = (self.offset[0] + delta[0], self.offset[1] + delta[1])
+
+    def scale(self, scale: Union[Tuple[float, float], float]) -> None:
+        """
+        Scales the tile by the value provided
+        """
+        if isinstance(scale, Tuple):
+            self.origin = (scale[0] * self.origin[0], scale[1] * self.origin[1])
+            self.offset = (scale[0] * self.offset[0], scale[1] * self.offset[1])
+        else:
+            self.origin = (scale * self.origin[0], scale * self.origin[1])
+            self.offset = (scale * self.offset[0], scale * self.offset[1])
+
+    def _base_str(self) -> str:
+        return f"{type(self)} @ {self.origin} -> {self.offset}"
+
+    def redraw(self, term: bl.Terminal) -> None:
+        """
+        Forces a complete redraw of the tile ensuring that all the content is overwritten
+        """
+        filler = " " * self.dimensions.x + term.move_left(self.dimensions.x)
+
+        with term.location(*self.start_loc):
+            print(term.move_down(1).join([filler] * self.dimensions.y), end="")
+
+        self.render(term)
+
+    def timing(self) -> Iterable[float]:
+        return [(self.frequency, self)]
+
+    def _update_edges(self, term) -> None:
         self.start_loc = start_loc = _Position(round(self.origin[0] * term.width), round(self.origin[1] * term.height))
         end_loc = _Position(round(self.offset[0] * term.width), round(self.offset[1] * term.height))
 
@@ -155,82 +192,6 @@ class tile():
 
         with term.location(*start_loc):
             print (top + "".join([middle, reset] * self.dimensions.y) + bot, end="")
-
-    def move(self, delta: Tuple[float, float]) -> None:
-        """
-        Moves the tile to in the direction of the vector given
-        """
-        self.origin = (self.origin[0] + delta[0], self.origin[1] + delta[1])
-        self.offset = (self.offset[0] + delta[0], self.offset[1] + delta[1])
-
-    def scale(self, scale: Union[Tuple[float, float], float]) -> None:
-        """
-        Scales the tile by the value provided
-        """
-        if isinstance(scale, Tuple):
-            self.origin = (scale[0] * self.origin[0], scale[1] * self.origin[1])
-            self.offset = (scale[0] * self.offset[0], scale[1] * self.offset[1])
-        else:
-            self.origin = (scale * self.origin[0], scale * self.origin[1])
-            self.offset = (scale * self.offset[0], scale * self.offset[1])
-
-    def _base_str(self) -> str:
-        return f"{type(self)} @ {self.origin} -> {self.offset}"
-
-    def select(self, position: Tuple[float, float], term: bl.Terminal):
-        """
-        Changes the border of the active tile to the the active border
-        """
-        self.border = active_border
-        self._update_edges(term)
-        return self
-
-    def deselect(self, term) -> None:
-        """
-        Changes the border of the active tile back to its original border
-        """
-        self.border = self._original_border
-
-        self._update_edges(term)
-
-    def redraw(self, term: bl.Terminal) -> None:
-        """
-        Forces a complete redraw of the tile ensuring that all the content is overwritten
-        """
-        filler = " " * self.dimensions.x + term.move_left(self.dimensions.x)
-
-        with term.location(*self.start_loc):
-            print(term.move_down(1).join([filler] * self.dimensions.y), end="")
-
-        self.render(term)
-
-    def timing(self) -> Iterable[float]:
-        return [(self.frequency, self)]
-
-    def _update_edges(self, term) -> None:
-        self.start_loc = start_loc = _Position(round(self.origin[0] * term.width), round(self.origin[1] * term.height))
-        end_loc = _Position(round(self.offset[0] * term.width), round(self.offset[1] * term.height))
-
-        displacement = (end_loc[0] - start_loc[0] - 2, end_loc[1] - start_loc[1] - 2)
-        reset = term.move_left(displacement[0] + 2) + term.move_down(1)
-
-        top:    str = " " * (displacement[0]+2)
-        middle: str = " " + term.move_right(displacement[0]) + " "
-        bot:    str = " " * (displacement[0]+2)
-
-        if self.border:
-            top = self.border[4] + self.border[0] * displacement[0] + self.border[5]
-            middle = self.border[2] + term.move_right(displacement[0]) + self.border[3]
-            bot = self.border[6] + self.border[1] * displacement[0] + self.border[7]
-
-        if self.title:
-            top = _overlay(top, self.title.center(displacement[0] + 2))
-
-        if self.border or self.title:
-            top += reset
-
-        with term.location(*start_loc):
-            print (top + "".join([middle, reset] * displacement[1]) + bot, end="")
 
     def start_concurrent(self) -> None:
         if isinstance(self, split):
@@ -296,13 +257,6 @@ class split(tile):
                 t.scale(scale)
         else:
             raise NotImplementedError
-
-    def select(self, position: Tuple[float, float], term: bl.Terminal):
-        tmp = [k[0] for k in [(i, x.deselect(term)) for i, x in enumerate(self.sections) if position not in x]]
-        return [x.select(position, term) for i, x in enumerate(self.sections) if i not in tmp][0]
-
-    def deselect(self, term) -> None:
-        [x.deselect(term) for x in self.sections]
 
     def redraw(self, term: bl.Terminal) -> None:
         """

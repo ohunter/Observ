@@ -12,22 +12,12 @@ import tiles as ti
 import sched as sc
 
 class screen():
-    def __init__(self, conf: Mapping[str, Any], no_active: bool = True) -> None:
+    def __init__(self, conf: Mapping[str, Any]) -> None:
         self.term = bl.Terminal()
-        self.no_active = no_active
 
         self.root: ti.tile = ti.tile.from_conf(conf["screen"])
-        if not self.no_active:
-            self.active = self.root.select((0,0), self.term)
 
         self.sched = sc.scheduler(self.root.timing())
-
-        self.actions = {
-            "KEY_UP" :    lambda pos, delta: (pos[0], max(0, pos[1] - delta[1])),
-            "KEY_DOWN" :  lambda pos, delta: (pos[0], min(1, pos[1] + delta[1])),
-            "KEY_LEFT" :  lambda pos, delta: (max(0, pos[0] - delta[0]), pos[1]),
-            "KEY_RIGHT" : lambda pos, delta: (min(1, pos[0] + delta[0]), pos[1]),
-        }
 
     def run(self) -> None:
         try:
@@ -39,12 +29,6 @@ class screen():
                     if inp in ["q", "Q"]:
                         logging.info("Exit input recieved. Terminating...")
                         return
-                    elif not self.no_active and inp.name in ["KEY_UP", "KEY_DOWN", "KEY_LEFT", "KEY_RIGHT"]:
-                        # Note: Once Python 3.9 comes out switch to using `math.nextafter` to figure out the next tile in a direction
-                        pos = (self.active.origin[0] + (self.active.offset[0] - self.active.origin[0])/2, self.active.origin[1] + (self.active.offset[1] - self.active.origin[1])/2)
-                        delta = ((self.active.offset[0] - self.active.origin[0])/2 + 0.1, (self.active.offset[1] - self.active.origin[1])/2 + 0.1)
-                        self.active.deselect(self.term)
-                        self.active = self.root.select(self.actions[inp.name](pos, delta), self.term)
 
                     for tile in tiles:
                         tile.render(self.term)
@@ -115,13 +99,6 @@ if __name__ == "__main__":
         type=int,
         default=0,
         help="The level the logger will output for. Corresponds to 1/10 of the logging levels for python. Only works if the log flag is given."
-    )
-
-    parser.add_argument(
-        "-na",
-        "--no_active",
-        help="Deactivates navigation of tiles with the arrow keys",
-        action="store_true"
     )
 
     args = parser.parse_args()

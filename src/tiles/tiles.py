@@ -123,6 +123,7 @@ class tile():
         """
         Draws the relevant information to the tile's location in the terminal
         """
+        # TODO: Figure out how to detect if the edges need to be updated or not
         self._update_edges(term)
 
     def move(self, delta: Tuple[float, float]) -> None:
@@ -161,25 +162,27 @@ class tile():
         return [(self.frequency, self)]
 
     def _update_edges(self, term) -> None:
+
         self.start_loc = start_loc = _Position(round(self.origin[0] * term.width), round(self.origin[1] * term.height))
         end_loc = _Position(round(self.offset[0] * term.width), round(self.offset[1] * term.height))
 
         self.dimensions = end_loc - start_loc
+        reset = term.move_down(1) + term.move_x(start_loc.x) #"\033[1E" + f"\033[{start_loc.x+1}G"
 
         top:    str = " " * (self.dimensions.x)
-        middle: str = " " + term.move_right(self.dimensions.x-2) + " "
-        bot:    str = " " * (self.dimensions.x)
-
-        reset = term.move_left(self.dimensions.x) + term.move_down(1)
+        middle: str = term.move_right(self.dimensions.x)
+        bot:    str = term.move_right(self.dimensions.x)
 
         if self.border or self.title:
 
-            self.start_loc += 1
+            self.start_loc += (0, 1)
             self.dimensions = end_loc - self.start_loc
 
             if self.border:
+                self.start_loc += (1, 0)
                 end_loc -= 1
                 self.dimensions = end_loc - self.start_loc
+
 
                 top = self.border[4] + self.border[0] * (self.dimensions.x) + self.border[5]
                 middle = self.border[2] + term.move_right(self.dimensions.x) + self.border[3]
@@ -188,10 +191,15 @@ class tile():
             if self.title:
                 top = _overlay(top, self.title.center(self.dimensions.x))
 
+                if not self.border:
+                    middle = reset + term.move_right(1)
+                    bot = reset + term.move_right(1)
+
             top += reset
+            middle += reset
 
         with term.location(*start_loc):
-            print (top + "".join([middle, reset] * self.dimensions.y) + bot, end="")
+            print (top + middle * self.dimensions.y + bot, end="")
 
     def start_concurrent(self) -> None:
         if isinstance(self, split):
@@ -512,7 +520,7 @@ class plot_tile(realtime_tile):
 
         vert_lines = _rotate_strings(self._line_history)
 
-        self.text = f"{term.move_left(self.dimensions.x) + term.move_down(1)}".join(vert_lines)
+        self.text = f"{term.move_down(1) + term.move_x(self.start_loc.x)}".join(vert_lines)
 
 class cpu_load_tile(plot_tile):
     def __init__(self, *args, **kwargs) -> None:
@@ -536,7 +544,6 @@ class cpu_load_tile(plot_tile):
     @staticmethod
     def from_conf(conf: Mapping[str, Any]):
         return cpu_load_tile(**conf)
-
 
 class ram_tile(multi_line_tile, realtime_tile):
     def __init__(self, *args, **kwargs) -> None:

@@ -1,7 +1,10 @@
+import importlib as il
 import math
 import time
 from io import TextIOWrapper
 from typing import List, Mapping, Tuple
+
+gpu = il.import_module("gpu", ".")
 
 size_list = ["B", "k", "M", "G", "T", "P"]
 
@@ -72,6 +75,15 @@ def RAM_LOAD(files: Mapping[str, TextIOWrapper], *args, **kwargs) -> float:
 
     return usage / loads[0][0]
 
+def GPU(device: gpu.GPU, *args, **kwargs) -> Tuple[str, Tuple[int, int, int, int, int, int, int]]:
+    if isinstance(device, gpu.Nvidia):
+        mem = device.memory
+        cloc = device.clock_speed
+        util = device.utilization
+
+        return device.name, (mem[0], mem[1], device.temperature, device.power, device.fan_speed, cloc[0], util[0])
+    else:
+        raise NotImplementedError
     # def SWAP(self):
     #     try:
     #         self.data.seek(0)

@@ -637,11 +637,11 @@ class gpu_tile(multi_line_tile, realtime_tile):
             f"{names[0].ljust(nam_w)} {name}",
             f"{names[1].ljust(nam_w)} {_adjust_prefix(out[0])}",
             f"{names[2].ljust(nam_w)} {_adjust_prefix(out[1])}",
-            f"{names[3].ljust(nam_w)} {out[2]} C",
-            f"{names[4].ljust(nam_w)} {out[3]/1000} W",
-            f"{names[5].ljust(nam_w)} {out[4]} % RPM",
+            f"{names[3].ljust(nam_w)} {out[2]:3} C",
+            f"{names[4].ljust(nam_w)} {out[3]/1000:.2f} W",
+            f"{names[5].ljust(nam_w)} {out[4]:3} % RPM",
             f"{names[6].ljust(nam_w)} {out[5]} MHz",
-            f"{names[7].ljust(nam_w)} {out[6]} %",
+            f"{names[7].ljust(nam_w)} {out[6]:3} %",
             ]
 
         for (_x, _y), s in zip(self.positions, strs):

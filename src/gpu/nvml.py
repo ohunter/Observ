@@ -1,9 +1,16 @@
+"""
+This file takes care of all GPUs that can be monitored by NVidia's NVML library
+"""
+
+import importlib as il
 import ctypes as ct
 import glob
 import os
 import pathlib
 from enum import Enum, IntEnum, auto, unique
 from typing import Callable, Dict, Tuple, Union
+
+gpu = il.import_module("gpu", ".")
 
 ### Enums
 class nvml_result_t(Enum):
@@ -92,10 +99,10 @@ class NVML_STATUS(IntEnum):
         else:
             return not self.value == x
 
-class Nvidia_GPU():
-    def __init__(self, library, device_index: int, device_ptr: nvml_device_t) -> None:
+class Nvidia(gpu.GPU):
+    def __init__(self, library, device_ptr: nvml_device_t, *args, **kwargs) -> None:
+        super(Nvidia, self).__init__(*args, **kwargs)
         self._lib = library
-        self._index = device_index
         self._ptr = device_ptr
 
     @property
@@ -139,6 +146,7 @@ class Nvidia_GPU():
         return cur_clock.value, max_clock.value
     @property
     def utilization(self) -> Tuple[int, int]:
+        """The GPU's utilization since the last query"""
         util = nvml_utilization_t()
         self._lib.execute("nvmlDeviceGetUtilizationRates", self._ptr, ct.byref(util))
 
@@ -147,7 +155,7 @@ class Nvidia_GPU():
 class NVML():
     def __init__(self) -> None:
         self._status = NVML_STATUS(0)
-        self._result: _nvml_result_t
+        self._result: nvml_result_t(0)
         self._created_devices = []
         self._funcs: Dict[str, Callable[..., nvml_result_t]] = {}
 
@@ -222,13 +230,13 @@ class NVML():
 
         assert self.result == nvml_result_t.NVML_SUCCESS, f"Function {function_name}() returned {self.result.name}"
 
-    def device(self, i: int = 0) -> Nvidia_GPU:
+    def device(self, i: int = 0) -> Nvidia:
         assert self.status == NVML_STATUS(2), "NVML has to be initialized before devices can be retrieved"
         assert i < self.device_count, "Requested device index is greater than the number of devices"
 
         device = nvml_device_t()
         self.execute("nvmlDeviceGetHandleByIndex_v2", ct.c_uint(i), ct.byref(device))
-        self._created_devices.append(Nvidia_GPU(self, i, device))
+        self._created_devices.append(Nvidia(self, device))
 
         return self._created_devices[-1]
 

@@ -121,6 +121,7 @@ if __name__ == "__main__":
 
     if args.debug:
         import debugpy
+        print(f"Listening for connections on port: {args.debug}. Connection is required to proceed.")
         debugpy.listen(('127.0.0.1', args.debug))
         debugpy.wait_for_client()
 

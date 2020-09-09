@@ -6,21 +6,29 @@ import os
 import queue as qu
 import threading as th
 import time
-from typing import (Any, Callable, Iterable, List, Mapping, NamedTuple, Type,
-                    Union)
+from typing import (Any, Callable, Dict, Iterable, List, Dict, NamedTuple,
+                    Tuple, Type, Union)
 
 sc = il.import_module("sched", ".")
+gpu = il.import_module("gpu", ".")
 
 class message(NamedTuple):
     identifier: Any
     value: Any
 
-def _module_executor(func, sched, queue, *args, **kwargs) -> None:
+def _module_executor(
+    func: Callable[..., Any],
+    sched: sc.scheduler,
+    queue: Union[qu.Queue, mp.Queue],
+    files: List[str] = [],
+    libs: List[Any] = [],
+    *args, **kwargs) -> None:
+
     logging.debug(f"Task recieved with function {func} with arguments {args} and keyword arguments {kwargs}")
 
-    if "files" in kwargs:
+    if files:
         logging.info(f"Opening required files for task")
-        kwargs.update({"files": {x : open(x) for x in kwargs.pop('files')}})
+        kwargs.update({"files": {x : open(x) for x in files}})
         logging.info(f"The following files were opened: {', '.join(kwargs['files'])}")
 
     logging.debug(f"Starting scheduler for task with function {func} with arguments {args} and keyword arguments {kwargs}")
@@ -34,7 +42,14 @@ def _module_executor(func, sched, queue, *args, **kwargs) -> None:
         logging.critical(f"Exception occurred in task with function {func} with arguments {args} and keyword arguments {kwargs}:\n{e}")
 
 class _tmp_exec():
-    def __init__(self, executed, func, func_args, func_kwargs, *args, **kwargs) -> None:
+    def __init__(
+        self,
+        executed: str,
+        func: Callable[..., Any],
+        func_args: Tuple[Any, ...] = [],
+        func_kwargs: Dict[str, Any] = {},
+        *args, **kwargs) -> None:
+
         self.exec = executed
         self.func = func
         self.args = func_args
@@ -45,7 +60,17 @@ class execution():
     Things to consider when using a `native` execution mode:
     - If the rendering of other tiles is slow, it may be because the system forces the evaluation of the function. Consider switching the execution method to `threaded` or `process`
     """
-    def __init__(self, func: Callable[..., Any], func_args: Iterable[Any], func_kwargs: Mapping[str, Any], instance, return_type: Union[Callable[[], None], Type], store_results: bool = False, initial: Any = None, *args, **kwargs) -> None:
+    def __init__(self,
+        func: Callable[..., Any],
+        instance,
+        return_type: Union[Callable[[], None], Type],
+        func_args: Iterable[Any] = [],
+        func_kwargs: Dict[str, Any] = {},
+        store_results: bool = False,
+        initial: Any = None,
+        libs: List[Union[gpu.NVML]] = [],
+        *args, **kwargs) -> None:
+
         self.func = func
         self.args = func_args
         self.kwargs = func_kwargs
@@ -59,6 +84,12 @@ class execution():
             self._base_storage = initial
         else:
             self._base_storage = return_type()
+
+        for lib in libs:
+            if isinstance(lib, type):
+                _shared_libs[type(lib()).__name__] = lib()
+            else:
+                _shared_libs[type(lib).__name__] = lib
 
         self.instances = []
         self.mapping = {}
@@ -103,6 +134,7 @@ class native_execution(execution):
         self.started = True
 
     def fetch(self, identifier) -> Any:
+        # TODO: Fix issue where files aren't opened if they have to be before calling the function
         value = self.func(*self.args, **self.kwargs)
 
         if "append" in dir(self._base_storage):
@@ -138,7 +170,10 @@ class concurrent_execution(execution):
         else:
             raise NotImplementedError
 
-        self.kwargs.update({"func": self.func, "queue": self.queue, "sched": sc.scheduler([(a, id(b)) for x in self.instances for a, b in x.timing()])})
+        self.kwargs.update({"func": self.func,
+                            "queue": self.queue,
+                            "sched": sc.scheduler([(a, id(b)) for x in self.instances for a, b in x.timing()]),
+                            "libs": _shared_libs})
 
         self.remote = self.remote(target=_module_executor, args=self.args, kwargs=self.kwargs, daemon=True)
 
@@ -170,10 +205,12 @@ class process_execution(concurrent_execution):
     def __init__(self, *args, **kwargs) -> None:
         super(process_execution, self).__init__(*args, **kwargs)
 
-_execution_types: Mapping[str, execution] = {
+_execution_types: Dict[str, execution] = {
     "native": native_execution,
     "thread": thread_execution,
     "process": process_execution,
 }
 
 _existing_executions: List[execution] = []
+
+_shared_libs: Dict[str, Union[gpu.NVML]] = {}

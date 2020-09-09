@@ -81,7 +81,7 @@ def GPU(device: gpu.GPU, *args, **kwargs) -> Tuple[str, Tuple[int, int, int, int
         cloc = device.clock_speed
         util = device.utilization
 
-        return device.name, (mem[0], mem[1], device.temperature, device.power, device.fan_speed, cloc[0], util[0])
+        return device.name, (mem[0], mem[1], device.temperature, device.power, device.fan_speed, cloc[0], math.floor(math.log10(cloc[1])), util[0])
     else:
         raise NotImplementedError
     # def SWAP(self):

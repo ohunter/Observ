@@ -623,7 +623,7 @@ class gpu_tile(multi_line_tile, realtime_tile):
         else:
             raise NotImplementedError
         kwargs.update({ "num_lines": 8, "func": mo.GPU,
-                        "func_kwargs": {"device" : device}, "return_type": tuple, "initial": ("",( 1, 1, 1, 1, 1, 1, 1)),  "libs": [lib]})
+                        "func_kwargs": {"device" : device}, "return_type": tuple, "initial": ("",( 1, 1, 1, 1, 1, 1, 4, 1)),  "libs": [lib]})
         super(gpu_tile, self).__init__(*args, **kwargs)
 
     def render(self, term: bl.Terminal) -> None:
@@ -640,8 +640,8 @@ class gpu_tile(multi_line_tile, realtime_tile):
             f"{names[3].ljust(nam_w)} {out[2]:3} C",
             f"{names[4].ljust(nam_w)} {out[3]/1000:.2f} W",
             f"{names[5].ljust(nam_w)} {out[4]:3} % RPM",
-            f"{names[6].ljust(nam_w)} {out[5]} MHz",
-            f"{names[7].ljust(nam_w)} {out[6]:3} %",
+            f"{names[6].ljust(nam_w)} {str(out[5]).rjust(out[6])} MHz",
+            f"{names[7].ljust(nam_w)} {out[7]:3} %",
             ]
 
         for (_x, _y), s in zip(self.positions, strs):

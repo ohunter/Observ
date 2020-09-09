@@ -1,3 +1,4 @@
+import importlib as il
 import math
 import os
 import time
@@ -6,13 +7,14 @@ from typing import Any, Iterable, List, Mapping, Tuple, Type, Union
 
 import blessed as bl
 
-import modules as mo
-import realtime as rt
+mo = il.import_module("modules", ".")
+rt = il.import_module("realtime", ".")
+gpu = il.import_module("gpu", ".")
 
                     # T    B    L    R    TL   TR    BL   BR
 passive_border =    ["─", "─", "│", "│", "┌", "┐", "└", "┘"]
 
-def min_diff(_iter: Iterable[float], val) -> float:
+def _min_diff(_iter: Iterable[float], val) -> float:
     diff = float("inf")
     key = -1
     for x in _iter:
@@ -514,7 +516,7 @@ class plot_tile(realtime_tile):
 
     def plot(self, term: bl.Terminal):
         decimal, integer = math.modf(self.history[-1]*self.dimensions.y)
-        s = f"{'█' * int(integer)}" + _line_subdivisions[min_diff(range(9), decimal)/8]
+        s = f"{'█' * int(integer)}" + _line_subdivisions[_min_diff(range(9), decimal)/8]
         s = s.ljust(self.dimensions.y)
         self._line_history.append(s)
 
@@ -588,7 +590,10 @@ class ram_load_tile(plot_tile):
     def from_conf(conf: Mapping[str, Any]):
         return ram_load_tile(**conf)
 
-
+class gpu_tile(multi_line_tile, realtime_tile):
+    def __init__(self, *args, **kwargs) -> None:
+        kwargs.update({"num_lines": 4, "func": mo.RAM, "func_args": [], "func_kwargs": {"files": ["/proc/meminfo"]}, "return_type": tuple, "initial": ((0, ""), (0, ""), (0, ""))})
+        super(ram_tile, self).__init__(*args, **kwargs)
 
 _tile_dict = {
     "tiled": split,

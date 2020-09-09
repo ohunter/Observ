@@ -1,13 +1,15 @@
 import copy
+import importlib as il
 import logging
 import multiprocessing as mp
 import os
 import queue as qu
-import sched as sc
 import threading as th
 import time
-from typing import Any, Callable, Iterable, List, Mapping, NamedTuple, Type, Union
+from typing import (Any, Callable, Iterable, List, Mapping, NamedTuple, Type,
+                    Union)
 
+sc = il.import_module("sched", ".")
 
 class message(NamedTuple):
     identifier: Any

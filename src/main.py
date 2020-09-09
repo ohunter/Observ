@@ -1,4 +1,5 @@
 import argparse
+import importlib as il
 import json
 import logging
 import os
@@ -8,8 +9,8 @@ from typing import Any, Mapping
 
 import blessed as bl
 
-import tiles as ti
-import sched as sc
+ti = il.import_module("tiles", ".")
+sc = il.import_module("sched", ".")
 
 class screen():
     def __init__(self, conf: Mapping[str, Any]) -> None:

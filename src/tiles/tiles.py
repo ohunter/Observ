@@ -455,7 +455,7 @@ class time_tile(line_tile, realtime_tile):
 
 class ctime_tile(line_tile, realtime_tile):
     def __init__(self, *args, **kwargs) -> None:
-        kwargs.update({"func": time.ctime, "func_args": [], "func_kwargs": {}, "return_type": float, "text": ""})
+        kwargs.update({"func": time.ctime, "func_args": [], "func_kwargs": {}, "return_type": str, "text": ""})
         super(ctime_tile, self).__init__(*args, **kwargs)
 
     def render(self, term: bl.Terminal) -> None:

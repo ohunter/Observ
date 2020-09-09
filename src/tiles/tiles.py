@@ -3,7 +3,7 @@ import math
 import os
 import time
 from itertools import accumulate, chain, product, zip_longest
-from typing import Any, Iterable, List, Mapping, Tuple, Type, Union
+from typing import Any, Iterable, List, Dict, Tuple, Type, Union
 
 import blessed as bl
 
@@ -13,6 +13,14 @@ gpu = il.import_module("gpu", ".")
 
                     # T    B    L    R    TL   TR    BL   BR
 passive_border =    ["─", "─", "│", "│", "┌", "┐", "└", "┘"]
+
+def _adjust_prefix(value: int, start_index = 0):
+    size_list = ["B", "k", "M", "G", "T", "P"]
+    idx = start_index
+    idx += math.floor(math.log10(value)/3)
+    value /= 1024 ** idx
+
+    return f"{value:.2f} {size_list[idx] + 'B' if idx != 0 else ''}"
 
 def _min_diff(_iter: Iterable[float], val) -> float:
     diff = float("inf")
@@ -217,7 +225,7 @@ class tile():
         return position[0] >= self.origin[0] and position[0] <= self.offset[0] and position[1] >= self.origin[1] and position[1] <= self.offset[1]
 
     @staticmethod
-    def from_conf(conf: Mapping[str, Any]):
+    def from_conf(conf: Dict[str, Any]):
         root = None
 
         if "partitions" in conf:
@@ -292,7 +300,7 @@ class split(tile):
             return False
 
     @staticmethod
-    def from_conf(conf: Mapping[str, Any]):
+    def from_conf(conf: Dict[str, Any]):
         tiles = []
 
         for s in conf["screens"]:
@@ -366,7 +374,7 @@ class tabbed(tile):
         pass
 
     @staticmethod
-    def from_conf(conf: Mapping[str, Any]):
+    def from_conf(conf: Dict[str, Any]):
         tiles = []
 
         for s in conf["screens"]:
@@ -442,7 +450,8 @@ class realtime_tile(tile):
 
 class time_tile(line_tile, realtime_tile):
     def __init__(self, *args, **kwargs) -> None:
-        kwargs.update({"func": time.time, "func_args": [], "func_kwargs": {}, "return_type": float, "text": ""})
+        kwargs.update({ "func": time.time,
+                        "func_kwargs": {}, "return_type": float, "text": ""})
         super(time_tile, self).__init__(*args, **kwargs)
 
     def render(self, term: bl.Terminal) -> None:
@@ -450,12 +459,13 @@ class time_tile(line_tile, realtime_tile):
         super(time_tile, self).render(term)
 
     @staticmethod
-    def from_conf(conf: Mapping[str, Any]):
+    def from_conf(conf: Dict[str, Any]):
         return time_tile(**conf)
 
 class ctime_tile(line_tile, realtime_tile):
     def __init__(self, *args, **kwargs) -> None:
-        kwargs.update({"func": time.ctime, "func_args": [], "func_kwargs": {}, "return_type": str, "text": ""})
+        kwargs.update({ "func": time.ctime,
+                        "func_kwargs": {}, "return_type": str, "text": ""})
         super(ctime_tile, self).__init__(*args, **kwargs)
 
     def render(self, term: bl.Terminal) -> None:
@@ -463,12 +473,17 @@ class ctime_tile(line_tile, realtime_tile):
         super(ctime_tile, self).render(term)
 
     @staticmethod
-    def from_conf(conf: Mapping[str, Any]):
+    def from_conf(conf: Dict[str, Any]):
         return ctime_tile(**conf)
 
 class cpu_tile(multi_line_tile, realtime_tile):
     def __init__(self, *args, **kwargs) -> None:
-        kwargs.update({"num_lines": os.cpu_count(), "func": mo.CPU, "func_args": [], "func_kwargs": {"files": ["/proc/stat"]}, "return_type": list, "initial": [(0, 0)] * os.cpu_count(), "store_results": True})
+        kwargs.update({"num_lines": os.cpu_count(),
+                        "func": mo.CPU,
+                        "func_kwargs": {"files": ["/proc/stat"]},
+                        "return_type": list,
+                        "initial": [(0, 0)] * os.cpu_count(),
+                        "store_results": True})
         super(cpu_tile, self).__init__(*args, **kwargs)
 
     def render(self, term: bl.Terminal) -> None:
@@ -488,7 +503,7 @@ class cpu_tile(multi_line_tile, realtime_tile):
                 print(s, end="")
 
     @staticmethod
-    def from_conf(conf: Mapping[str, Any]):
+    def from_conf(conf: Dict[str, Any]):
         return cpu_tile(**conf)
 
 class plot_tile(realtime_tile):
@@ -526,7 +541,10 @@ class plot_tile(realtime_tile):
 
 class cpu_load_tile(plot_tile):
     def __init__(self, *args, **kwargs) -> None:
-        kwargs.update({"func": mo.CPU_LOAD, "func_args": [], "func_kwargs": {"files": ["/proc/stat"]}, "return_type": float, "initial": (0, 0)})
+        kwargs.update({ "func": mo.CPU_LOAD,
+                        "func_kwargs": {"files": ["/proc/stat"]},
+                        "return_type": float,
+                        "initial": (0, 0)})
         super(cpu_load_tile, self).__init__(*args, **kwargs)
         self._raw_history.append((0, 0))
 
@@ -544,12 +562,15 @@ class cpu_load_tile(plot_tile):
             print(self.text, end="")
 
     @staticmethod
-    def from_conf(conf: Mapping[str, Any]):
+    def from_conf(conf: Dict[str, Any]):
         return cpu_load_tile(**conf)
 
 class ram_tile(multi_line_tile, realtime_tile):
     def __init__(self, *args, **kwargs) -> None:
-        kwargs.update({"num_lines": 4, "func": mo.RAM, "func_args": [], "func_kwargs": {"files": ["/proc/meminfo"]}, "return_type": tuple, "initial": ((0, ""), (0, ""), (0, ""))})
+        kwargs.update({ "num_lines": 4, "func": mo.RAM,
+                        "func_kwargs": {"files": ["/proc/meminfo"]},
+                        "return_type": tuple,
+                        "initial": ((0, ""), (0, ""), (0, ""))})
         super(ram_tile, self).__init__(*args, **kwargs)
 
     def render(self, term: bl.Terminal) -> None:
@@ -567,12 +588,13 @@ class ram_tile(multi_line_tile, realtime_tile):
                 print(s, end="")
 
     @staticmethod
-    def from_conf(conf: Mapping[str, Any]):
+    def from_conf(conf: Dict[str, Any]):
         return ram_tile(**conf)
 
 class ram_load_tile(plot_tile):
     def __init__(self, *args, **kwargs) -> None:
-        kwargs.update({"func": mo.RAM_LOAD, "func_args": [], "func_kwargs": {"files": ["/proc/meminfo"]}, "return_type": float})
+        kwargs.update({ "func": mo.RAM_LOAD,
+                        "func_kwargs": {"files": ["/proc/meminfo"]}, "return_type": float})
         super(ram_load_tile, self).__init__(*args, **kwargs)
         self._raw_history.append((0, 0))
 
@@ -587,13 +609,49 @@ class ram_load_tile(plot_tile):
             print(self.text, end="")
 
     @staticmethod
-    def from_conf(conf: Mapping[str, Any]):
+    def from_conf(conf: Dict[str, Any]):
         return ram_load_tile(**conf)
 
 class gpu_tile(multi_line_tile, realtime_tile):
-    def __init__(self, *args, **kwargs) -> None:
-        kwargs.update({"num_lines": 4, "func": mo.RAM, "func_args": [], "func_kwargs": {"files": ["/proc/meminfo"]}, "return_type": tuple, "initial": ((0, ""), (0, ""), (0, ""))})
-        super(ram_tile, self).__init__(*args, **kwargs)
+    def __init__(self, gpu_type: str = "Nvidia", gpu_index: int = 0, *args, **kwargs) -> None:
+        lib = None
+        if gpu_type == "Nvidia":
+            lib = gpu.NVML()
+            lib.setup()
+            lib.initialize()
+            device = lib.device(gpu_index)
+        else:
+            raise NotImplementedError
+        kwargs.update({ "num_lines": 8, "func": mo.GPU,
+                        "func_kwargs": {"device" : device}, "return_type": tuple, "initial": ("",( 1, 1, 1, 1, 1, 1, 1)),  "libs": [lib]})
+        super(gpu_tile, self).__init__(*args, **kwargs)
+
+    def render(self, term: bl.Terminal) -> None:
+        super(gpu_tile, self).render(term)
+
+        name, out = self.module.fetch(self)
+
+        names = ["Name:", "Memory Free:", "Memory Total:", "Temperature:", "Powerdraw:", "Fan RPM:", "Clockspeed:", "Utilization:"]
+        nam_w = max([len(x) for x in names])
+        strs = [
+            f"{names[0].ljust(nam_w)} {name}",
+            f"{names[1].ljust(nam_w)} {_adjust_prefix(out[0])}",
+            f"{names[2].ljust(nam_w)} {_adjust_prefix(out[1])}",
+            f"{names[3].ljust(nam_w)} {out[2]} C",
+            f"{names[4].ljust(nam_w)} {out[3]/1000} W",
+            f"{names[5].ljust(nam_w)} {out[4]} % RPM",
+            f"{names[6].ljust(nam_w)} {out[5]} MHz",
+            f"{names[7].ljust(nam_w)} {out[6]} %",
+            ]
+
+        for (_x, _y), s in zip(self.positions, strs):
+            pos = _Position(_x * term.width, _y * term.height) - (len(s)//2, 0)
+            with term.location(*pos):
+                print(s, end="")
+
+    @staticmethod
+    def from_conf(conf: Dict[str, Any]):
+        return gpu_tile(**conf)
 
 _tile_dict = {
     "tiled": split,
@@ -604,6 +662,7 @@ _tile_dict = {
     "cpu load": cpu_load_tile,
     "ram": ram_tile,
     "ram load": ram_load_tile,
+    "gpu": gpu_tile,
 }
 
 _line_subdivisions = {

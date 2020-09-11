@@ -127,7 +127,7 @@ Displays general informatopm about the specified graphics card such as the name 
 | `gpu_type` | True | `Nvidia` | `Nvidia`, `Intel`, or `AMD` |
 | `gpu_index` | True | 0 | Any integer value between 0 and the number of GPUs in the system `[0, N)` |
 
-The same fields apply to all the GPU derivative tiles
+The same fields apply to all the GPU derivative tiles.
 
 ##### GPU Memory
 

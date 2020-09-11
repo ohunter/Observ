@@ -118,7 +118,7 @@ Shows an overall history of the usage of the system memory.
 
 ##### GPU
 
-Displays general informatopm about the specified graphics card such as the name (ie. model), total memory, free memory, temperature, powerdraw, fan rpm, clockspeed, and utilization
+Displays general informatopm about the specified graphics card such as the name (ie. model), total memory, free memory, temperature, powerdraw, fan rpm, clockspeed, and utilization.
 
 ###### Additional tile Fields
 

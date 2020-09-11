@@ -57,7 +57,7 @@ This array describes at what percentage of the area the borders between the diff
 
 The `tile` object is the simplest of the objects as it contains a singular module which performs a singular task. There are a variety of different types of tile objects. Some are static and don't do anything; Others update periodically. Depending on the type of `tile` there are different fields to consider. The type of tile id determined by the field `module`.
 
-#### tile Fields
+#### General tile Fields
 
 | Field Name | Optional | Default | Options |
 |---|---|---|---|
@@ -115,6 +115,43 @@ Displays how much of the system's memory is free, available, and in use. Also di
 ##### RAM Load
 
 Shows an overall history of the usage of the system memory.
+
+##### GPU
+
+Displays general informatopm about the specified graphics card such as the name (ie. model), total memory, free memory, temperature, powerdraw, fan rpm, clockspeed, and utilization
+
+###### Additional tile Fields
+
+| Field Name | Optional | Default | Options |
+|---|---|---|---|
+| `gpu_type` | True | `Nvidia` | `Nvidia`, `Intel`, or `AMD` |
+| `gpu_index` | True | 0 | Any integer value between 0 and the number of GPUs in the system `[0, N)` |
+
+The same fields apply to all the GPU derivative tiles
+
+##### GPU Memory
+
+Shows an overall history of the usage of the specified GPU's memory.
+
+##### GPU Temperature
+
+Shows an overall history of the usage of the specified GPU's temperature.
+
+##### GPU Power
+
+Shows an overall history of the usage of the specified GPU's powerdraw.
+
+##### GPU Fan
+
+Shows an overall history of the usage of the specified GPU's fan speed.
+
+##### GPU Clock
+
+Shows an overall history of the usage of the specified GPU's clock speed.
+
+##### GPU Utilization
+
+Shows an overall history of the usage of the specified GPU's utilization.
 
 ### Sample configuration
 

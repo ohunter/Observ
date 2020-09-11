@@ -614,16 +614,13 @@ class ram_load_tile(plot_tile):
 
 class gpu_tile(multi_line_tile, realtime_tile):
     def __init__(self, gpu_type: str = "Nvidia", gpu_index: int = 0, *args, **kwargs) -> None:
-        lib = None
-        if gpu_type == "Nvidia":
-            lib = gpu.NVML()
-            lib.setup()
-            lib.initialize()
-            device = lib.device(gpu_index)
-        else:
-            raise NotImplementedError
-        kwargs.update({ "num_lines": 8, "func": mo.GPU,
-                        "func_kwargs": {"device" : device}, "return_type": tuple, "initial": ("",( 1, 1, 1, 1, 1, 1, 4, 1)),  "libs": [lib]})
+        lib = gpu.get_library(gpu_type)
+        device = lib.device(gpu_index)
+        kwargs.update({ "num_lines": 8,
+                        "func": mo.GPU,
+                        "func_kwargs": {"device" : device},
+                        "return_type": tuple,
+                        "initial": ("",( 1, 1, 1, 1, 1, 1, 4, 1))})
         super(gpu_tile, self).__init__(*args, **kwargs)
 
     def render(self, term: bl.Terminal) -> None:
@@ -634,14 +631,14 @@ class gpu_tile(multi_line_tile, realtime_tile):
         names = ["Name:", "Memory Free:", "Memory Total:", "Temperature:", "Powerdraw:", "Fan RPM:", "Clockspeed:", "Utilization:"]
         nam_w = max([len(x) for x in names])
         strs = [
-            f"{names[0].ljust(nam_w)} {name}",
-            f"{names[1].ljust(nam_w)} {_adjust_prefix(out[0])}",
-            f"{names[2].ljust(nam_w)} {_adjust_prefix(out[1])}",
-            f"{names[3].ljust(nam_w)} {out[2]:3} C",
-            f"{names[4].ljust(nam_w)} {out[3]/1000:.2f} W",
-            f"{names[5].ljust(nam_w)} {out[4]:3} % RPM",
-            f"{names[6].ljust(nam_w)} {str(out[5]).rjust(out[6])} MHz",
-            f"{names[7].ljust(nam_w)} {out[7]:3} %",
+            f"{names[0]} {name}",
+            f"{names[1]} {_adjust_prefix(out[0])}",
+            f"{names[2]} {_adjust_prefix(out[1])}",
+            f"{names[3]} {out[2]:3}°C",
+            f"{names[4]} {out[3]/1000:7.2f} W",
+            f"{names[5]} {out[4]:3} % RPM",
+            f"{names[6]} {str(out[5]).rjust(out[6])} MHz",
+            f"{names[7]} {out[7]:3} %",
             ]
 
         for (_x, _y), s in zip(self.positions, strs):
@@ -653,6 +650,164 @@ class gpu_tile(multi_line_tile, realtime_tile):
     def from_conf(conf: Dict[str, Any]):
         return gpu_tile(**conf)
 
+class gpu_memory_load_tile(plot_tile):
+    def __init__(self, gpu_type: str = "Nvidia", gpu_index: int = 0, *args, **kwargs) -> None:
+        lib = gpu.get_library(gpu_type)
+        device = lib.device(gpu_index)
+        kwargs.update({ "func": mo.GPU_MEMORY_LOAD,
+                        "func_kwargs": {"device" : device},
+                        "return_type": int,
+                        "initial": 0})
+        super(gpu_memory_load_tile, self).__init__(*args, **kwargs)
+        self._raw_history.append(0)
+
+    def render(self, term: bl.Terminal) -> None:
+        super(gpu_memory_load_tile, self).render(term)
+
+        self._raw_history.append(self.module.fetch(self))
+        self.history.append(self._raw_history[-1]/100)
+
+        super(gpu_memory_load_tile, self).plot(term)
+
+        with term.location(*self.start_loc):
+            print(self.text, end="")
+
+    @staticmethod
+    def from_conf(conf: Dict[str, Any]):
+        return gpu_memory_load_tile(**conf)
+
+class gpu_temperature_load_tile(plot_tile):
+    def __init__(self, gpu_type: str = "Nvidia", gpu_index: int = 0, *args, **kwargs) -> None:
+        lib = gpu.get_library(gpu_type)
+        device = lib.device(gpu_index)
+        kwargs.update({ "func": mo.GPU_TEMPERATURE_LOAD,
+                        "func_kwargs": {"device" : device},
+                        "return_type": int,
+                        "initial": 0})
+        super(gpu_temperature_load_tile, self).__init__(*args, **kwargs)
+        self._raw_history.append(0)
+
+    def render(self, term: bl.Terminal) -> None:
+        super(gpu_temperature_load_tile, self).render(term)
+
+        self._raw_history.append(self.module.fetch(self))
+        self.history.append(self._raw_history[-1]/100)
+
+        super(gpu_temperature_load_tile, self).plot(term)
+
+        with term.location(*self.start_loc):
+            print(self.text, end="")
+
+    @staticmethod
+    def from_conf(conf: Dict[str, Any]):
+        return gpu_temperature_load_tile(**conf)
+
+class gpu_power_load_tile(plot_tile):
+    def __init__(self, gpu_type: str = "Nvidia", gpu_index: int = 0, *args, **kwargs) -> None:
+        lib = gpu.get_library(gpu_type)
+        device = lib.device(gpu_index)
+        kwargs.update({ "func": mo.GPU_POWER_LOAD,
+                        "func_kwargs": {"device" : device},
+                        "return_type": float,
+                        "initial": 0})
+        super(gpu_power_load_tile, self).__init__(*args, **kwargs)
+        self._raw_history.append(0)
+
+    def render(self, term: bl.Terminal) -> None:
+        super(gpu_power_load_tile, self).render(term)
+
+        self._raw_history.append(self.module.fetch(self))
+        self.history.append(self._raw_history[-1]/100)
+
+        super(gpu_power_load_tile, self).plot(term)
+
+        with term.location(*self.start_loc):
+            print(self.text, end="")
+
+    @staticmethod
+    def from_conf(conf: Dict[str, Any]):
+        return gpu_power_load_tile(**conf)
+
+class gpu_fan_load_tile(plot_tile):
+    def __init__(self, gpu_type: str = "Nvidia", gpu_index: int = 0, *args, **kwargs) -> None:
+        lib = gpu.get_library(gpu_type)
+        device = lib.device(gpu_index)
+        kwargs.update({ "func": mo.GPU_FAN_LOAD,
+                        "func_kwargs": {"device" : device},
+                        "return_type": int,
+                        "initial": 0})
+        super(gpu_fan_load_tile, self).__init__(*args, **kwargs)
+        self._raw_history.append(0)
+
+    def render(self, term: bl.Terminal) -> None:
+        super(gpu_fan_load_tile, self).render(term)
+
+        self._raw_history.append(self.module.fetch(self))
+        self.history.append(self._raw_history[-1]/100)
+
+        super(gpu_fan_load_tile, self).plot(term)
+
+        with term.location(*self.start_loc):
+            print(self.text, end="")
+
+    @staticmethod
+    def from_conf(conf: Dict[str, Any]):
+        return gpu_fan_load_tile(**conf)
+
+class gpu_clock_load_tile(plot_tile):
+    def __init__(self, gpu_type: str = "Nvidia", gpu_index: int = 0, *args, **kwargs) -> None:
+        lib = gpu.get_library(gpu_type)
+        device = lib.device(gpu_index)
+        kwargs.update({ "func": mo.GPU_CLOCK_LOAD,
+                        "func_kwargs": {"device" : device},
+                        "return_type": float,
+                        "initial": 0})
+        super(gpu_clock_load_tile, self).__init__(*args, **kwargs)
+        self._raw_history.append(0)
+
+    def render(self, term: bl.Terminal) -> None:
+        super(gpu_clock_load_tile, self).render(term)
+
+        self._raw_history.append(self.module.fetch(self))
+        self.history.append(self._raw_history[-1])
+
+        super(gpu_clock_load_tile, self).plot(term)
+
+        with term.location(*self.start_loc):
+            print(self.text, end="")
+
+    @staticmethod
+    def from_conf(conf: Dict[str, Any]):
+        return gpu_clock_load_tile(**conf)
+
+class gpu_utilization_load_tile(plot_tile):
+    def __init__(self, gpu_type: str = "Nvidia", gpu_index: int = 0, *args, **kwargs) -> None:
+        lib = gpu.get_library(gpu_type)
+        device = lib.device(gpu_index)
+        kwargs.update({ "func": mo.GPU_UTILIZATION_LOAD,
+                        "func_kwargs": {"device" : device},
+                        "return_type": int,
+                        "initial": 0})
+        super(gpu_utilization_load_tile, self).__init__(*args, **kwargs)
+        self._raw_history.append(0)
+
+    def render(self, term: bl.Terminal) -> None:
+        super(gpu_utilization_load_tile, self).render(term)
+
+        self._raw_history.append(self.module.fetch(self))
+        self.history.append(self._raw_history[-1]/100)
+
+        super(gpu_utilization_load_tile, self).plot(term)
+
+        with term.location(*self.start_loc):
+            print(self.text, end="")
+
+    @staticmethod
+    def from_conf(conf: Dict[str, Any]):
+        return gpu_utilization_load_tile(**conf)
+
+
+
 _tile_dict = {
     "tiled": split,
     "tabbed": tabbed,
@@ -663,6 +818,12 @@ _tile_dict = {
     "ram": ram_tile,
     "ram load": ram_load_tile,
     "gpu": gpu_tile,
+    "gpu memory": gpu_memory_load_tile,
+    "gpu temperature": gpu_temperature_load_tile,
+    "gpu power": gpu_power_load_tile,
+    "gpu fan": gpu_fan_load_tile,
+    "gpu clock": gpu_clock_load_tile,
+    "gpu utilization": gpu_utilization_load_tile,
 }
 
 _line_subdivisions = {

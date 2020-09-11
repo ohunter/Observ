@@ -88,6 +88,45 @@ def GPU(device: gpu.GPU, *args, **kwargs) -> Tuple[str, Tuple[int, int, int, int
         return device.name, (mem[1], mem[0], device.temperature, device.power, device.fan_speed, cloc[0], math.ceil(math.log10(cloc[1])), util[0])
     else:
         raise NotImplementedError
+
+def GPU_MEMORY_LOAD(device: gpu.GPU, *args, **kwargs) -> int:
+    if isinstance(device, nvml.Nvidia):
+        util = device.utilization
+        return util[1]
+    else:
+        raise NotImplementedError
+
+def GPU_TEMPERATURE_LOAD(device: gpu.GPU, *args, **kwargs) -> int:
+    if isinstance(device, nvml.Nvidia):
+        return device.temperature
+    else:
+        raise NotImplementedError
+
+def GPU_POWER_LOAD(device: gpu.GPU, *args, **kwargs) -> float:
+    if isinstance(device, nvml.Nvidia):
+        return device.power / 1000
+    else:
+        raise NotImplementedError
+
+def GPU_FAN_LOAD(device: gpu.GPU, *args, **kwargs) -> int:
+    if isinstance(device, nvml.Nvidia):
+        return device.fan_speed
+    else:
+        raise NotImplementedError
+
+def GPU_CLOCK_LOAD(device: gpu.GPU, *args, **kwargs) -> float:
+    if isinstance(device, nvml.Nvidia):
+        cloc = device.clock_speed
+        return cloc[0]/cloc[1]
+    else:
+        raise NotImplementedError
+
+def GPU_UTILIZATION_LOAD(device: gpu.GPU, *args, **kwargs) -> int:
+    if isinstance(device, nvml.Nvidia):
+        util = device.utilization
+        return util[0]
+    else:
+        raise NotImplementedError
     # def SWAP(self):
     #     try:
     #         self.data.seek(0)
@@ -163,7 +202,6 @@ def GPU(device: gpu.GPU, *args, **kwargs) -> Tuple[str, Tuple[int, int, int, int
     # """
     # - GPU Monitoring
     #     - Intel
-    #     - Nvidia
     #     - AMD
     # - Network Activity
     #     - Wifi

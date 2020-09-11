@@ -7,9 +7,10 @@ nvml.py corresponds to Nvidia GPUs
 TODO: Figure out what to do with AMD GPUs
 
 """
-
-from collections import defaultdict
-from typing import Dict, List, Tuple
+import os
+from inspect import getsourcefile
+from typing import Any, Dict, Tuple
+import importlib.machinery as mach
 
 class GPU():
     def __init__(self, *args, **kwargs) -> None:
@@ -44,13 +45,23 @@ class GPU():
         """The GPU's utilization since the last query"""
         raise NotImplementedError
 
-# def locate_gpus(paths: Dict[str, str] = defaultdict(None)) -> List[GPU]:
-#     from . import nvml
-#     from . import itg
-#     nv_lib = nvml.NVML()
+def get_library(library_name: str):
+    if library_name.upper() in _libraries:
+        return _libraries[library_name.upper()]
 
-#     try:
-#         nv_lib.setup(paths["NVidia"])
-#     except AssertionError:
-#         # There is no Nvidia library so nvidia cards cant be monitored
-#         pass
+    if library_name.upper() == "NVIDIA":
+        nvml = mach.SourceFileLoader("nvml", f"{os.path.dirname(os.path.abspath(getsourcefile(lambda:0)))}/nvml.py").load_module()
+        lib = nvml.NVML()
+        lib.setup()
+        lib.initialize()
+        _libraries[library_name.upper()] = lib
+        return lib
+    elif library_name.upper() == "INTEL":
+        raise NotImplementedError
+    elif library_name.upper() == "AMD":
+        raise NotImplementedError
+
+_libraries: Dict[str, Any] = {}
+
+if __name__ == "__main__":
+    get_library("nvidia")

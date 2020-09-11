@@ -21,7 +21,6 @@ def _module_executor(
     sched: sc.scheduler,
     queue: Union[qu.Queue, mp.Queue],
     files: List[str] = [],
-    libs: List[Any] = [],
     *args, **kwargs) -> None:
 
     logging.debug(f"Task recieved with function {func} with arguments {args} and keyword arguments {kwargs}")
@@ -68,7 +67,6 @@ class execution():
         func_kwargs: Dict[str, Any] = {},
         store_results: bool = False,
         initial: Any = None,
-        libs: List[Union[gpu.NVML]] = [],
         *args, **kwargs) -> None:
 
         self.func = func
@@ -84,12 +82,6 @@ class execution():
             self._base_storage = initial
         else:
             self._base_storage = return_type()
-
-        for lib in libs:
-            if isinstance(lib, type):
-                _shared_libs[type(lib()).__name__] = lib()
-            else:
-                _shared_libs[type(lib).__name__] = lib
 
         self.instances = []
         self.mapping = {}
@@ -172,8 +164,7 @@ class concurrent_execution(execution):
 
         self.kwargs.update({"func": self.func,
                             "queue": self.queue,
-                            "sched": sc.scheduler([(a, id(b)) for x in self.instances for a, b in x.timing()]),
-                            "libs": _shared_libs})
+                            "sched": sc.scheduler([(a, id(b)) for x in self.instances for a, b in x.timing()])})
 
         self.remote = self.remote(target=_module_executor, args=self.args, kwargs=self.kwargs, daemon=True)
 
@@ -212,5 +203,3 @@ _execution_types: Dict[str, execution] = {
 }
 
 _existing_executions: List[execution] = []
-
-_shared_libs: Dict[str, Union[gpu.NVML]] = {}

@@ -1,10 +1,14 @@
 import importlib as il
+import importlib.machinery as mach
 import math
+import os
 import time
+from inspect import getsourcefile
 from io import TextIOWrapper
 from typing import List, Mapping, Tuple
 
 gpu = il.import_module("gpu", ".")
+nvml = mach.SourceFileLoader("nvml", f"{os.path.dirname(os.path.abspath(getsourcefile(lambda:0)))}/../gpu/nvml.py").load_module()
 
 size_list = ["B", "k", "M", "G", "T", "P"]
 
@@ -76,12 +80,12 @@ def RAM_LOAD(files: Mapping[str, TextIOWrapper], *args, **kwargs) -> float:
     return usage / loads[0][0]
 
 def GPU(device: gpu.GPU, *args, **kwargs) -> Tuple[str, Tuple[int, int, int, int, int, int, int]]:
-    if isinstance(device, gpu.Nvidia):
+    if isinstance(device, nvml.Nvidia):
         mem = device.memory
         cloc = device.clock_speed
         util = device.utilization
 
-        return device.name, (mem[0], mem[1], device.temperature, device.power, device.fan_speed, cloc[0], math.floor(math.log10(cloc[1])), util[0])
+        return device.name, (mem[1], mem[0], device.temperature, device.power, device.fan_speed, cloc[0], math.ceil(math.log10(cloc[1])), util[0])
     else:
         raise NotImplementedError
     # def SWAP(self):

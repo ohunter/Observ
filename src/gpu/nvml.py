@@ -167,11 +167,16 @@ class NVML():
             self._path = pathlib.Path(path)
         elif path == None:
             import platform
+            paths = []
             cur_dir = os.getcwd()
-            os.chdir('/usr/lib')
-            paths = [pathlib.Path(x).resolve() for x in glob.glob('**/libnvidia-ml.so', recursive=True)]
-            os.chdir(cur_dir)
-            assert paths != [], "libnvidia-ml.so could not be located."
+            for sub_path in ['/usr/lib/x86_64-linux-gnu', '/usr/lib/i386-linux-gnu', '/usr/lib']:
+                os.chdir(sub_path)
+                paths = [pathlib.Path(x).resolve() for x in glob.glob('**/libnvidia-ml.so', recursive=True)]
+                os.chdir(cur_dir)
+                if paths != []:
+                    break
+            else:
+                assert paths != [], "libnvidia-ml.so could not be located."
 
             self._path = [x for x in paths if any([y for y in x.parts if platform.machine() in y])][0] or paths[0]
         else:

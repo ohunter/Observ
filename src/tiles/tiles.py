@@ -161,10 +161,22 @@ class tile():
         """
         Forces a complete redraw of the tile ensuring that all the content is overwritten
         """
-        filler = " " * self.dimensions.x + term.move_left(self.dimensions.x)
 
-        with term.location(*self.start_loc):
-            print(term.move_down(1).join([filler] * self.dimensions.y), end="")
+        start_loc = self.start_loc
+        spacing = self.dimensions
+
+        if self.border or self.title:
+            start_loc -= (0, 1)
+            spacing += (0, 1)
+
+        if self.border:
+            start_loc -= (1, 0)
+            spacing += (2, 0)
+
+        filler = " " * spacing .x+ term.move_left(spacing.x)
+
+        with term.location(*start_loc):
+            print(term.move_down(1).join([filler] * spacing.y), end="")
 
         self.render(term)
 

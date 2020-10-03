@@ -16,7 +16,7 @@ from enum import Enum, IntEnum, auto, unique
 from inspect import getsourcefile
 from typing import Any, Callable, DefaultDict, Dict, Tuple, Type, Union, List
 
-nvml = il.import_module("nvml", ".")
+from . import nvml
 
 @unique
 class LibStatus(IntEnum):

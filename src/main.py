@@ -4,15 +4,16 @@ import logging
 import os
 import signal
 from signal import SIGWINCH
-from typing import Any, Mapping
+from typing import Any, Dict
 
 import blessed as bl
 
 import tiles as ti
 import sched as sc
+import web as wb
 
 class screen():
-    def __init__(self, conf: Mapping[str, Any]) -> None:
+    def __init__(self, conf: Dict[str, Any]) -> None:
         self.term = bl.Terminal()
 
         self.root: ti.tile = ti.tile.from_conf(conf["screen"])
@@ -55,14 +56,8 @@ def main(args: argparse.Namespace) -> None:
         config = json.load(fi)
 
     if args.web:
-        import bottle as bo
-
-        @bo.route("/")
-        def web_server():
-            return ""
-
-        bo.run(host="localhost", port=args.web, debug=True, reloader=True)
-
+        with wb.WebServer(config, ("", args.web)) as server:
+            server.serve_forever()
     else:
         def sig_resize(sig, action) -> None:
             scr.redraw()
@@ -125,7 +120,7 @@ if __name__ == "__main__":
         type=int,
         nargs='?',
         const=42420,
-        help="Opens a web server with the specified port. On a local machine the address would be 127.0.0.1 followed by the specified port. If no additional argument is specified, the default port is 42069"
+        help="Opens a web server with the specified port. On a local machine the address would be 127.0.0.1 followed by the specified port. If no additional argument is specified, the default port is 42420"
     )
 
     args = parser.parse_args()

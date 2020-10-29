@@ -183,7 +183,7 @@ class tile():
     def timing(self) -> Iterable[float]:
         return [(self.frequency, self)]
 
-    def _update_edges(self, term) -> None:
+    def _update_edges(self, term: bl.Terminal) -> None:
 
         self.start_loc = start_loc = _Position(round(self.origin[0] * term.width), round(self.origin[1] * term.height))
         end_loc = _Position(round(self.offset[0] * term.width), round(self.offset[1] * term.height))
@@ -368,7 +368,7 @@ class tabbed(tile):
         tmp = [k[0] for k in [(i, x.deselect(term)) for i, x in enumerate(self.tabs) if position not in x]]
         return [x.select(position, term) for i, x in enumerate(self.tabs) if i not in tmp][0]
 
-    def deselect(self, term) -> None:
+    def deselect(self, term: bl.Terminal) -> None:
         [x.deselect(term) for x in self.tabs]
 
     def __str__(self) -> str:

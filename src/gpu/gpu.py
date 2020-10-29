@@ -8,15 +8,14 @@ TODO: Figure out what to do with AMD GPUs
 
 """
 import ctypes as ct
-import importlib as il
-import importlib.machinery as mach
 import os
-import pathlib as pl
-from enum import Enum, IntEnum, auto, unique
+from enum import IntEnum, unique
+from importlib.machinery import SourceFileLoader
 from inspect import getsourcefile
-from typing import Any, Callable, DefaultDict, Dict, Tuple, Type, Union, List
+from typing import Any, Callable, DefaultDict, Dict, List, Tuple, Type, Union
 
-from . import nvml
+nvml = SourceFileLoader("nvml", f"{os.path.dirname(os.path.abspath(getsourcefile(lambda:0)))}/nvml.py").load_module()
+igt = SourceFileLoader("igt", f"{os.path.dirname(os.path.abspath(getsourcefile(lambda:0)))}/igt.py").load_module()
 
 @unique
 class LibStatus(IntEnum):
@@ -101,10 +100,10 @@ class Library():
             else:
                 self._libs[name] = ct.CDLL(path)
 
-    def initialize(self):
+    def initialize(self) -> None:
         pass
 
-    def load_function(self, lib: ct.CDLL, function_name: str, arg_type: List[Type] = [], ret_type: Type = None):
+    def load_function(self, lib: ct.CDLL, function_name: str, arg_type: List[Type] = [], ret_type: Type = None) -> None:
         assert self.status >= LibStatus.Loaded, f"{self.library_name} has to be loaded before functions can be loaded"
 
         func = getattr(lib, function_name)
@@ -112,7 +111,7 @@ class Library():
         func.restype = ret_type
         self._funcs[lib].append(func)
 
-    def execute(self, lib: ct.CDLL, function_name: str, *args):
+    def execute(self, lib: ct.CDLL, function_name: str, *args) -> None:
         if function_name not in self._init_funcs[lib]:
             assert self.status >= LibStatus.Initialized, f"{self.library_name} has to be initialized before functions can be executed"
             assert self.status < LibStatus.Shutdown, f"{self.library_name} can not be shutdown when executing functions"
@@ -122,7 +121,7 @@ class Library():
         self._result = func(*args)
 
     @property
-    def status(self):
+    def status(self) -> LibStatus:
         return self._status
     @property
     def result(self) -> Any:
@@ -187,42 +186,66 @@ class NVML(Library):
         self.library_name = "NVML"
         self._created_devices = []
 
-    def setup(self, path: Union[str, os.PathLike, None] = None):
+    def setup(self, path: Union[str, os.PathLike, None] = None) -> None:
         libs = {"libnvidia-ml.so": path or "libnvidia-ml.so"}
         super(NVML, self).setup(libs)
         self._lib = self._libs["libnvidia-ml.so"]
         self._status = LibStatus.Loaded
 
-    def initialize(self):
+    def initialize(self) -> None:
         assert self.status >= LibStatus.Loaded, f"{self.library_name} has to be loaded before initialized"
         assert self.status != LibStatus.Initialized, f"{self.library_name} has already been initialized"
         assert self.status < LibStatus.Shutdown, f"{self.library_name} can not be initialized after shutdown"
 
         funcs = [
-            "nvmlInit_v2",
-            "nvmlDeviceGetCount_v2",
-            "nvmlDeviceGetHandleByIndex_v2",
-            "nvmlDeviceGetName",
-            "nvmlDeviceGetMemoryInfo",
-            "nvmlDeviceGetTemperature",
-            "nvmlDeviceGetPowerUsage",
-            "nvmlDeviceGetFanSpeed",
-            "nvmlDeviceGetClockInfo",
-            "nvmlDeviceGetMaxClockInfo",
-            "nvmlDeviceGetUtilizationRates",
-            "nvmlShutdown",
+            ("nvmlInit_v2",
+                [],
+                nvml.nvml_result_t),
+            ("nvmlDeviceGetCount_v2",
+                [ct.POINTER(ct.c_uint)],
+                nvml.nvml_result_t),
+            ("nvmlDeviceGetHandleByIndex_v2",
+                [ct.c_uint, ct.POINTER(nvml.nvml_device_t)],
+                nvml.nvml_result_t),
+            ("nvmlDeviceGetName",
+                [nvml.nvml_device_t, ct.c_char_p, ct.c_uint],
+                nvml.nvml_result_t),
+            ("nvmlDeviceGetMemoryInfo",
+                [nvml.nvml_device_t, ct.POINTER(nvml.nvml_memory_t)],
+                nvml.nvml_result_t),
+            ("nvmlDeviceGetTemperature",
+                [nvml.nvml_device_t, nvml.nvml_temperature_sensors_t, ct.POINTER(ct.c_uint)],
+                nvml.nvml_result_t),
+            ("nvmlDeviceGetPowerUsage",
+                [nvml.nvml_device_t, ct.POINTER(ct.c_uint)],
+                nvml.nvml_result_t),
+            ("nvmlDeviceGetFanSpeed",
+                [nvml.nvml_device_t, ct.POINTER(ct.c_uint)],
+                nvml.nvml_result_t),
+            ("nvmlDeviceGetClockInfo",
+                [nvml.nvml_device_t, nvml.nvml_clock_type_t, ct.POINTER(ct.c_uint)],
+                nvml.nvml_result_t),
+            ("nvmlDeviceGetMaxClockInfo",
+                [nvml.nvml_device_t, nvml.nvml_clock_type_t, ct.POINTER(ct.c_uint)],
+                nvml.nvml_result_t),
+            ("nvmlDeviceGetUtilizationRates",
+                [nvml.nvml_device_t, ct.POINTER(nvml.nvml_utilization_t)],
+                nvml.nvml_result_t),
+            ("nvmlShutdown",
+                [],
+                nvml.nvml_result_t),
         ]
 
-        self._init_funcs[self._lib].append(funcs[0])
+        self._init_funcs[self._lib].append(funcs[0][0])
 
-        for func in funcs:
-            self.load_function(func)
+        for func, args, ret in funcs:
+            self.load_function(self._lib, func, args, ret)
 
         self.execute("nvmlInit_v2")
 
         self._status = LibStatus.Initialized
 
-    def shutdown(self):
+    def shutdown(self) -> None:
         assert self.status > LibStatus.Loaded, f"{self.library_name} has to be loaded before it can be shutdown"
         assert self.status > LibStatus.Initialized, f"{self.library_name} has to be initialized before it can be shutdown"
         assert self.status != LibStatus.Shutdown, f"{self.library_name} has already been shutdown"
@@ -231,10 +254,7 @@ class NVML(Library):
 
         self._status = LibStatus.Shutdown
 
-    def load_function(self, function_name: str):
-        super(NVML, self).load_function(self._lib, function_name, [], nvml.nvml_result_t)
-
-    def execute(self, function_name: str, *args):
+    def execute(self, function_name: str, *args) -> None:
         super(NVML, self).execute(self._lib, function_name, *args)
 
         assert self.result == nvml.nvml_result_t.NVML_SUCCESS, f"Function {function_name}() returned {self.result.name}"
@@ -256,24 +276,173 @@ class NVML(Library):
         self.execute("nvmlDeviceGetCount_v2", ct.byref(dev_count))
         return dev_count.value
 
-def get_library(library_name: str):
+class Intel(GPU):
+    pass
+
+class IGT(Library):
+    def __init__(self, *args, **kwargs) -> None:
+        super(IGT, self).__init__(*args, **kwargs)
+        self.library_name = "IGT"
+
+    def setup(self) -> None:
+        libs = {
+            "libudev.so" : "libudev.so",
+            "libglib.so" : "libglib.so"
+            }
+        super(IGT, self).setup(libs)
+        self._status = LibStatus.Loaded
+
+    def initialize(self) -> None:
+        # Load the neccessary functions
+
+        self._igt_devices = igt.igt_devs_struct()
+        udev = self._libs["libudev.so"]
+        udev_funcs = [
+            ("udev_new",
+                [],
+                igt.udev),
+            ("udev_enumerate_new",
+                [igt.udev],
+                igt.udev_enumerate),
+            ("udev_enumerate_add_match_subsystem",
+                [igt.udev_enumerate, ct.c_char_p],
+                ct.c_int),
+            ("udev_enumerate_add_match_property",
+                [igt.udev_enumerate, ct.c_char_p, ct.c_char_p],
+                ct.c_int),
+            ("udev_enumerate_scan_devices",
+                [igt.udev_enumerate],
+                ct.c_int),
+            ("udev_enumerate_get_list_entry",
+                [igt.udev_enumerate],
+                ct.c_int),
+            ("udev_list_entry_get_next",
+                [igt.udev_list_entry],
+                igt.udev_list_entry)
+            ("udev_list_entry_get_name",
+                [igt.udev_list_entry],
+                ct.c_char_p),
+            ("udev_device_new_from_syspath",
+                [igt.udev, ct.c_char_p],
+                igt.udev_device),
+        ]
+
+        # TODO: Import all the right glib functions
+
+        glib = self._libs["libglib.so"]
+        glib_funcs = [
+            ("g_hash_table_new_full",
+                [],
+                igt.glib_ghashtable),
+        ]
+
+        for func, args, ret in udev_funcs:
+            self.load_function(udev, func, args, ret)
+
+        self._status = LibStatus.Initialized
+
+        import pdb; pdb.set_trace()
+
+    def execute(self, lib: ct.CDLL, function_name: str, *args) -> None:
+        super(IGT, self).execute(lib, function_name, *args)
+
+        if lib == self._libs["libudev.so"]:
+            assert self.result != None, f"Udev function {function_name}() returned invalid pointer"
+
+    def _scan_devices(self, force: bool) -> None:
+        if force and self._igt_devices.devs_scanned:
+            import pdb; pdb.set_trace()
+
+        if self._igt_devices.devs_scanned:
+            return
+
+        self.__prep_scan()
+        self.__scan_drm_devices()
+
+        self._igt_devices.devs_scanned = True
+
+    def __prep_scan(self):
+        self.___igt_init_list_head(ct.byref(self._igt_devices.all))
+        self.___igt_init_list_head(ct.byref(self._igt_devices.filtered))
+
+    def __scan_drm_devices(self):
+        lib = self._libs["libudev.so"]
+        
+        self.execute(lib, "udev_new")
+        udev = self.result
+
+        self.execute(lib, "udev_enumerate_new", ct.byref(udev))
+        udev_enum = self.result
+
+        self.execute(udev, "udev_enumerate_add_match_subsystem", udev_enum, "drm".encode('ascii'))
+        assert self.result >= 0, f"Udev function udev_enumerate_add_match_subsystem() returned invalid integer"
+
+        self.execute(udev, "udev_enumerate_add_match_property", udev_enum, "DEVNAME".encode('ascii'), "/dev/dri/*".encode('ascii'))
+        assert self.result >= 0, f"Udev function udev_enumerate_add_match_property() returned invalid integer"
+
+        self.execute(udev, "udev_enumerate_scan_devices", udev_enum)
+        assert self.result >= 0, f"Udev function udev_enumerate_scan_devices() returned invalid integer"
+
+        self.execute(udev, "udev_enumerate_get_list_entry", udev_enum)
+        if not self.result:
+            return
+        devices = self.result
+
+        dev_list_entry = devices
+
+        while dev_list_entry:
+            path = ct.c_char_p()
+            udev_dev = igt.udev_device()
+            idev = igt.igt_device_struct()
+
+            self.execute(lib, "udev_list_entry_get_name", dev_list_entry)
+            path = self.result
+
+            self.execute(lib, "udev_device_new_from_syspath", udev, path)
+            udev_dev = self.result
+
+            
+
+            self.execute(udev, "udev_list_entry_get_next", dev_list_entry)
+            dev_list_entry = self.result
+
+    def ___igt_init_list_head(self, lst: ct.POINTER(igt.igt_list_head)):
+        lst.prev = lst
+        lst.next = lst
+
+    def ___igt_device_new_from_udev(self, dev: igt.udev_device):
+        idev = 0
+
+    def ____igt_device_new(self) -> igt.igt_device_struct:
+        dev = igt.igt_device_struct()
+        dev.atters_ht = 
+
+
+def get_library(library_name: str) -> Library:
     if library_name.upper() in _libraries:
         return _libraries[library_name.upper()]
 
+    lib: Library = None
+
     if library_name.upper() == "NVIDIA":
         lib = NVML()
-        lib.setup()
-        lib.initialize()
-        _libraries[library_name.upper()] = lib
-        return lib
     elif library_name.upper() == "INTEL":
-        raise NotImplementedError
+        lib = IGT()
     elif library_name.upper() == "AMD":
         raise NotImplementedError
+    else:
+        raise NotImplementedError
+    lib.setup()
+    lib.initialize()
+
+    _libraries[library_name.upper()] = lib
+    return lib
+
 
 _libraries: Dict[str, Any] = {}
 
 
 
 if __name__ == "__main__":
-    get_library("nvidia")
+    tmp = get_library("Intel")
+    import pdb; pdb.set_trace()

@@ -12,6 +12,8 @@ A simple curses based system monitor similar to that of glances and htop
 
 - [Blessed](https://github.com/jquast/blessed)
 - [Debugpy](https://github.com/microsoft/debugpy) *(Only needed if you plan on running with the `--debug` flag)*
+- [libnvidia-ml.so] *(Only for Nvidia GPUs)*
+- [libudev.so] *(Only for Intel GPUs)*
 
 ## Arguments
 

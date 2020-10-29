@@ -51,7 +51,7 @@
                       "title": "Memory Utilization"
                     },
                     {
-                      "module": "ram load",
+                      "module": "gpu",
                       "border": true,
                       "frequency": 2,
                       "executed": "thread",

@@ -5,14 +5,13 @@ import os
 import time
 from inspect import getsourcefile
 from io import TextIOWrapper
-from typing import List, Mapping, Tuple
+from typing import List, Dict, Tuple
 
 gpu = il.import_module("gpu", ".")
-nvml = mach.SourceFileLoader("nvml", f"{os.path.dirname(os.path.abspath(getsourcefile(lambda:0)))}/../gpu/nvml.py").load_module()
 
 size_list = ["B", "k", "M", "G", "T", "P"]
 
-def CPU(files: Mapping[str, TextIOWrapper], *args, **kwargs) -> List[Tuple[float, float]]:
+def CPU(files: Dict[str, TextIOWrapper], *args, **kwargs) -> List[Tuple[float, float]]:
     data = files["/proc/stat"]
 
     data.seek(0)
@@ -27,7 +26,7 @@ def CPU(files: Mapping[str, TextIOWrapper], *args, **kwargs) -> List[Tuple[float
 
     return [(x, t) for x, t in zip(cl, ct)]
 
-def CPU_LOAD(files: Mapping[str, TextIOWrapper], *args, **kwargs) -> Tuple[float, float]:
+def CPU_LOAD(files: Dict[str, TextIOWrapper], *args, **kwargs) -> Tuple[float, float]:
     data = files["/proc/stat"]
     data.seek(0)
 
@@ -35,7 +34,7 @@ def CPU_LOAD(files: Mapping[str, TextIOWrapper], *args, **kwargs) -> Tuple[float
 
     return (loads[0]+loads[2], loads[0]+loads[2]+loads[3])
 
-def RAM(files: Mapping[str, TextIOWrapper], *args, **kwargs) -> Tuple[Tuple[float, str], Tuple[float, str], Tuple[float, str], Tuple[float, str]]:
+def RAM(files: Dict[str, TextIOWrapper], *args, **kwargs) -> Tuple[Tuple[float, str], Tuple[float, str], Tuple[float, str], Tuple[float, str]]:
     data = files["/proc/meminfo"]
     data.seek(0)
 
@@ -67,7 +66,7 @@ def RAM(files: Mapping[str, TextIOWrapper], *args, **kwargs) -> Tuple[Tuple[floa
 
     return [(free, size_list[fi]), (usage, size_list[ui]), (avail, size_list[ai]), (loads[0][0], size_list[ti])]
 
-def RAM_LOAD(files: Mapping[str, TextIOWrapper], *args, **kwargs) -> float:
+def RAM_LOAD(files: Dict[str, TextIOWrapper], *args, **kwargs) -> float:
     data = files["/proc/meminfo"]
     data.seek(0)
 
@@ -80,7 +79,7 @@ def RAM_LOAD(files: Mapping[str, TextIOWrapper], *args, **kwargs) -> float:
     return usage / loads[0][0]
 
 def GPU(device: gpu.GPU, *args, **kwargs) -> Tuple[str, Tuple[int, int, int, int, int, int, int]]:
-    if isinstance(device, nvml.Nvidia):
+    if isinstance(device, gpu.Nvidia):
         mem = device.memory
         cloc = device.clock_speed
         util = device.utilization
@@ -90,39 +89,39 @@ def GPU(device: gpu.GPU, *args, **kwargs) -> Tuple[str, Tuple[int, int, int, int
         raise NotImplementedError
 
 def GPU_MEMORY_LOAD(device: gpu.GPU, *args, **kwargs) -> int:
-    if isinstance(device, nvml.Nvidia):
+    if isinstance(device, gpu.Nvidia):
         util = device.utilization
         return util[1]
     else:
         raise NotImplementedError
 
 def GPU_TEMPERATURE_LOAD(device: gpu.GPU, *args, **kwargs) -> int:
-    if isinstance(device, nvml.Nvidia):
+    if isinstance(device, gpu.Nvidia):
         return device.temperature
     else:
         raise NotImplementedError
 
 def GPU_POWER_LOAD(device: gpu.GPU, *args, **kwargs) -> float:
-    if isinstance(device, nvml.Nvidia):
+    if isinstance(device, gpu.Nvidia):
         return device.power / 1000
     else:
         raise NotImplementedError
 
 def GPU_FAN_LOAD(device: gpu.GPU, *args, **kwargs) -> int:
-    if isinstance(device, nvml.Nvidia):
+    if isinstance(device, gpu.Nvidia):
         return device.fan_speed
     else:
         raise NotImplementedError
 
 def GPU_CLOCK_LOAD(device: gpu.GPU, *args, **kwargs) -> float:
-    if isinstance(device, nvml.Nvidia):
+    if isinstance(device, gpu.Nvidia):
         cloc = device.clock_speed
         return cloc[0]/cloc[1]
     else:
         raise NotImplementedError
 
 def GPU_UTILIZATION_LOAD(device: gpu.GPU, *args, **kwargs) -> int:
-    if isinstance(device, nvml.Nvidia):
+    if isinstance(device, gpu.Nvidia):
         util = device.utilization
         return util[0]
     else:

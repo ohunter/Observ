@@ -2,7 +2,7 @@ import math
 import os
 import time
 from itertools import accumulate, chain, product, zip_longest
-from typing import Any, Iterable, List, Mapping, Tuple, Type, Union
+from typing import Any, Iterable, List, Dict, Tuple, Type, Union
 
 import blessed as bl
 
@@ -211,11 +211,15 @@ class tile():
         else:
             return
 
+    def configuration(self) -> Dict[str, Any]:
+        # Produces a dictionary of the configuration that is easier to parse
+        pass
+
     def __contains__(self, position: Tuple[float, float]) -> bool:
         return position[0] >= self.origin[0] and position[0] <= self.offset[0] and position[1] >= self.origin[1] and position[1] <= self.offset[1]
 
     @staticmethod
-    def from_conf(conf: Mapping[str, Any]):
+    def from_conf(conf: Dict[str, Any]):
         root = None
 
         if "partitions" in conf:
@@ -290,7 +294,7 @@ class split(tile):
             return False
 
     @staticmethod
-    def from_conf(conf: Mapping[str, Any]):
+    def from_conf(conf: Dict[str, Any]):
         tiles = []
 
         for s in conf["screens"]:
@@ -364,7 +368,7 @@ class tabbed(tile):
         pass
 
     @staticmethod
-    def from_conf(conf: Mapping[str, Any]):
+    def from_conf(conf: Dict[str, Any]):
         tiles = []
 
         for s in conf["screens"]:
@@ -448,7 +452,7 @@ class time_tile(line_tile, realtime_tile):
         super(time_tile, self).render(term)
 
     @staticmethod
-    def from_conf(conf: Mapping[str, Any]):
+    def from_conf(conf: Dict[str, Any]):
         return time_tile(**conf)
 
 class ctime_tile(line_tile, realtime_tile):
@@ -461,7 +465,7 @@ class ctime_tile(line_tile, realtime_tile):
         super(ctime_tile, self).render(term)
 
     @staticmethod
-    def from_conf(conf: Mapping[str, Any]):
+    def from_conf(conf: Dict[str, Any]):
         return ctime_tile(**conf)
 
 class cpu_tile(multi_line_tile, realtime_tile):
@@ -486,7 +490,7 @@ class cpu_tile(multi_line_tile, realtime_tile):
                 print(s, end="")
 
     @staticmethod
-    def from_conf(conf: Mapping[str, Any]):
+    def from_conf(conf: Dict[str, Any]):
         return cpu_tile(**conf)
 
 class plot_tile(realtime_tile):
@@ -542,7 +546,7 @@ class cpu_load_tile(plot_tile):
             print(self.text, end="")
 
     @staticmethod
-    def from_conf(conf: Mapping[str, Any]):
+    def from_conf(conf: Dict[str, Any]):
         return cpu_load_tile(**conf)
 
 class ram_tile(multi_line_tile, realtime_tile):
@@ -565,7 +569,7 @@ class ram_tile(multi_line_tile, realtime_tile):
                 print(s, end="")
 
     @staticmethod
-    def from_conf(conf: Mapping[str, Any]):
+    def from_conf(conf: Dict[str, Any]):
         return ram_tile(**conf)
 
 class ram_load_tile(plot_tile):
@@ -585,7 +589,7 @@ class ram_load_tile(plot_tile):
             print(self.text, end="")
 
     @staticmethod
-    def from_conf(conf: Mapping[str, Any]):
+    def from_conf(conf: Dict[str, Any]):
         return ram_load_tile(**conf)
 
 

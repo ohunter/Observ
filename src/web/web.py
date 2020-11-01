@@ -1,10 +1,13 @@
-import socketserver as ss
 import http.server as hs
 import json
+import os
+import socketserver as ss
 
+from inspect import getsourcefile
 from typing import Any, Callable, Dict, Tuple
 
 import tiles as ti
+
 
 class WebServer(ss.ThreadingTCPServer):
     def __init__(self, config: Dict[str, Any], address: Tuple[str, int], *args, **kwargs) -> None:
@@ -29,35 +32,16 @@ class TCPHandler(hs.BaseHTTPRequestHandler):
         super(TCPHandler, self).__init__(*args, **kwargs)
 
     def do_GET(self):
-        self.send_response(200)
-        self.send_header("Content-Type", "text/html")
-        self.end_headers()
-        self.wfile.write(f"""
-<html>
-    <head>
-        <title>Observ Web Interface</title>
-    </head>
-    <body onload="setup()">
-    </body>
-    <script>
-    function setup() {{
-        request = new XMLHttpRequest();
-        request.onreadystatechange = function() {{
-            if (this.readyState == 4 && and this.status == 200){{
-
-            }}
-        }}
-        request.open("POST", "{self.headers.values()[1]}", true);
-        request.setRequestHeader('Content-Type', 'application/json');
-        request.send(JSON.stringify(
-    {{
-        action: "setup"
-    }}
-        ));
-    }}
-    </script>
-</html>
-""".encode())
+        try:
+            with open(f"{os.path.dirname(os.path.abspath(getsourcefile(lambda:0)))}/base.html", 'r') as fi:
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html")
+                self.end_headers()
+                self.wfile.write(fi.read().encode())
+                return
+        except OSError:
+            self.send_response(404)
+            self.end_headers()
 
     def do_POST(self) -> None:
         _action_dict : Dict[str, Callable[[Dict[str, Any]], Dict[str, Any]]] = {
@@ -75,9 +59,7 @@ class TCPHandler(hs.BaseHTTPRequestHandler):
 
             response = _action_dict[content.pop('action', 'setup')](content)
 
-            import pdb; pdb.set_trace()
-
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.end_headers()
-        self.wfile.write(response)
+        self.wfile.write(response.encode())

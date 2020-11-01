@@ -1,0 +1,32 @@
+<html>
+  <head>
+    <title>Observ Web Interface</title>
+  </head>
+
+  <body onload="setup()">
+  </body>
+  <script>
+    function setup() {
+      request = new XMLHttpRequest();
+      request.onreadystatechange = function () {
+          if (this.readyState == 4 && this.status == 200) {
+            if (this.getResponseHeader("Content-Type") == "application/json")
+            {
+              create_layout(JSON.parse(this.responseText))
+            }
+          }
+      }
+      request.open("POST", "", true);
+      request.setRequestHeader('Content-Type', 'application/json');
+      request.send(JSON.stringify(
+        {
+          action: "setup"
+        }
+      ));
+    }
+
+    function create_layout(layout) {
+      console.log(layout);
+    }
+  </script>
+</html>

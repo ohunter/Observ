@@ -158,7 +158,7 @@ class tile():
 
         self.render(term)
 
-    def timing(self) -> Iterable[float]:
+    def timing(self) -> Iterable[Tuple[float, Type]]:
         return [(self.frequency, self)]
 
     def _update_edges(self, term) -> None:
@@ -211,9 +211,33 @@ class tile():
         else:
             return
 
-    def configuration(self) -> Dict[str, Any]:
-        # Produces a dictionary of the configuration that is easier to parse
-        pass
+    def configuration(self) -> Dict[int, Dict[str, Union[Dict[str, float], float, str]]]:
+        """Iterates and produces a minimal map of the screen area and timings suitable for JSON"""
+
+        # Thing to iterate over
+        ttio = []
+
+        if isinstance(self, split):
+            ttio = self.sections
+        elif isinstance(self, tabbed):
+            ttio = self.tabs
+        else:
+            return {
+                id(self) : {
+                    "origin": {
+                        "x" : self.origin[0],
+                        "y" : self.origin[0]
+                    },
+                    "offset": {
+                        "x" : self.offset[0],
+                        "y" : self.offset[0]
+                    },
+                    "frequency" : self.frequency,
+                    "type" : type(self).__name__,
+                }
+            }
+
+        return {k : v for k,v in chain(*[x.configuration().items() for x in ttio])}
 
     def __contains__(self, position: Tuple[float, float]) -> bool:
         return position[0] >= self.origin[0] and position[0] <= self.offset[0] and position[1] >= self.origin[1] and position[1] <= self.offset[1]

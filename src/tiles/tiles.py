@@ -226,11 +226,11 @@ class tile():
                 id(self) : {
                     "origin": {
                         "x" : self.origin[0],
-                        "y" : self.origin[0]
+                        "y" : self.origin[1]
                     },
                     "offset": {
                         "x" : self.offset[0],
-                        "y" : self.offset[0]
+                        "y" : self.offset[1]
                     },
                     "frequency" : self.frequency,
                     "type" : type(self).__name__,

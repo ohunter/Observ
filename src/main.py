@@ -3,6 +3,8 @@ import json
 import logging
 import os
 import signal
+import sys
+
 from signal import SIGWINCH
 from typing import Any, Dict
 
@@ -56,7 +58,7 @@ def main(args: argparse.Namespace) -> None:
         config = json.load(fi)
 
     if args.web:
-        with wb.WebServer(config, ("", args.web)) as server:
+        with wb.WebServer(config, ("", args.web), args.mode) as server:
             server.serve_forever()
     else:
         def sig_resize(sig, action) -> None:
@@ -95,14 +97,12 @@ if __name__ == "__main__":
         help=f"The path to the configuration file for the process. The default location is: {os.path.abspath(os.path.dirname(__file__))}/"
     )
 
-    # Note to self:
-    # Look into whether it is possible to make an argument be conditionally dependent on another argument.
-    # eg: The `-ll`/`--log_level` argument can only be supplied when the `-l`/`--log` argument is present
     parser.add_argument(
         "-ll",
         "--log_level",
         type=int,
         default=0,
+        required=any(['-l' in sys.argv, '--log' in sys.argv]),
         help="The level the logger will output for. Corresponds to 1/10 of the logging levels for python. Only works if the log flag is given."
     )
 
@@ -121,6 +121,16 @@ if __name__ == "__main__":
         nargs='?',
         const=42420,
         help="Opens a web server with the specified port. On a local machine the address would be 127.0.0.1 followed by the specified port. If no additional argument is specified, the default port is 42420"
+    )
+
+    # Also needs to be conditionally dependent on the existance of web mode
+    parser.add_argument(
+        "-m",
+        "--mode",
+        type=str,
+        default="thread",
+        required=any(['-m' in sys.argv, '--mode' in sys.argv]),
+        help="Specifies how the monitor is executed alongside the web server. Default is `thread`."
     )
 
     args = parser.parse_args()

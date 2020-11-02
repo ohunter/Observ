@@ -1,10 +1,10 @@
-![The logo](https://github.com/ohunter/Observ/blob/master/observ_logo.png)
+![The logo](https://github.com/ohunter/Observ/blob/master/media/observ_logo.png)
 
 A simple curses based system monitor similar to that of glances and htop
 
 ## Sample
 
-![A simple example](https://github.com/ohunter/Observ/blob/master/Example.gif)
+![A simple example](https://github.com/ohunter/Observ/blob/master/media/Example.gif)
 
 **NB:** *Please excuse the seemingly poor performance in the example above. My laptop wasn't too happy with recording it. Unless you set the frequency of a module to be absurd the system impact should be marginal.*
 

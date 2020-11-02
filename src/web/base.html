@@ -1,15 +1,33 @@
 <html>
   <head>
     <title>Observ Web Interface</title>
+    <link rel="shortcut icon" href="../../media/observ_logo_icon.png" />
   </head>
 
   <body onload="setup()">
   </body>
   <script>
-    function setup() {
+    canvases = []
+
+    window.onresize = function resize()
+    {
+      for (canvas in canvases)
+      {
+        e.setAttribute("width", e.calc_width());
+        e.setAttribute("height", e.calc_height());
+
+        e.style.left = e.abs_pos().x * window.innerWidth;
+        e.style.top = e.abs_pos().y * window.innerHeight;
+      }
+    }
+
+    function setup()
+    {
       request = new XMLHttpRequest();
-      request.onreadystatechange = function () {
-          if (this.readyState == 4 && this.status == 200) {
+      request.onreadystatechange = function ()
+      {
+          if (this.readyState == 4 && this.status == 200)
+          {
             if (this.getResponseHeader("Content-Type") == "application/json")
             {
               create_layout(JSON.parse(this.responseText))
@@ -25,8 +43,40 @@
       ));
     }
 
-    function create_layout(layout) {
-      console.log(layout);
+    function create_layout(layout)
+    {
+      for (canvas in layout)
+      {
+        e = document.createElement("canvas");
+
+        e.origin = layout[canvas]["origin"];
+        e.offset = layout[canvas]["offset"];
+        e.tile_type = canvas.tile_type;
+        e.calc_width = function ()
+        {
+          return (parseFloat(e.offset["x"]) - parseFloat(e.origin["x"])) * window.innerWidth;
+        }
+        e.calc_height = function ()
+        {
+          return (parseFloat(e.offset["y"]) - parseFloat(e.origin["y"])) * window.innerHeight;
+        }
+        e.abs_pos = function ()
+        {
+          return { x : parseFloat(e.origin["x"]), y : parseFloat(e.origin["y"])};
+        }
+
+        e.setAttribute("id", canvas);
+        e.setAttribute("width", e.calc_width());
+        e.setAttribute("height", e.calc_height());
+
+        e.style.position = 'absolute';
+        e.style.left = e.abs_pos().x * window.innerWidth;
+        e.style.top = e.abs_pos().y * window.innerHeight;
+
+        canvases.push(e);
+        document.body.appendChild(e);
+      }
     }
+  
   </script>
 </html>

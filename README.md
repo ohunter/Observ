@@ -18,6 +18,7 @@ A simple curses based system monitor similar to that of glances and htop
 - `-c`: Specifies the location of the configuration file. It is optional as there is a default location.
 - `-l`: Specifies the location of the log produced by the process. It is optional, but if the argument is present and there is no secondary argument the location is assumed.
 - `-ll`: Specifies the level of logging desired. It maps to 1 to 10 for the logging levels in python.
+- `-w`: Specifies that the program will run in web mode so one can monitor the system resources in real time in a web browser.
 - `--debug`: Opens a port for debugging purposes. If no secondary value is given the default port is `42069`.
 
 ## Configuration

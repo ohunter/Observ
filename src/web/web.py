@@ -1,18 +1,24 @@
 import http.server as hs
 import json
+import multiprocessing as mp
 import os
+import queue as qu
 import socketserver as ss
+import threading as th
 
 from inspect import getsourcefile
-from typing import Any, Callable, Dict, Tuple
+from typing import Any, Callable, Dict, Tuple, Union
 
 import tiles as ti
 
-
 class WebServer(ss.ThreadingTCPServer):
-    def __init__(self, config: Dict[str, Any], address: Tuple[str, int], *args, **kwargs) -> None:
+    def __init__(self, config: Dict[str, Any], mode: str, address: Tuple[str, int], *args, **kwargs) -> None:
         self._config = config
         self.started = False
+
+        assert self.mode in ["thread", "process"], "Unknown execution mode specified. If you believe this to be an error, submit a PR."
+
+        self.mode = mode
         super(WebServer, self).__init__(address, TCPHandler, *args, **kwargs)
 
     def initialize_screen(self, content):
@@ -20,6 +26,13 @@ class WebServer(ss.ThreadingTCPServer):
             self.started = True
             self.tile_root = ti.tile.from_conf(self._config["screen"])
             self.screen_conf = json.dumps(self.tile_root.configuration())
+
+            if self.mode == "thread":
+                self.remote = th.Thread
+                self.queue = qu.Queue()
+            elif self.mode == "process":
+                self.remote = mp.Process
+                self.queue = mp.Queue()
 
         return self.screen_conf
 

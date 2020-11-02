@@ -4,10 +4,11 @@
     <link rel="shortcut icon" href="../../media/observ_logo_icon.png" />
   </head>
 
-  <body onload="setup()">
+  <body onload="setup(); update()">
   </body>
   <script>
     canvases = []
+    timeout = 0
 
     window.onresize = function resize()
     {
@@ -30,7 +31,7 @@
           {
             if (this.getResponseHeader("Content-Type") == "application/json")
             {
-              create_layout(JSON.parse(this.responseText))
+              create_layout(JSON.parse(this.responseText));
             }
           }
       }
@@ -78,5 +79,44 @@
       }
     }
   
+    function update()
+    {
+      request = new XMLHttpRequest();
+      request.onreadystatechange = function ()
+      {
+        if (this.readyState == 4 && this.status == 200)
+        {
+          if (this.getResponseHeader("Content-Type") == "application/json")
+          {
+            update_tiles(JSON.parse(this.responseText));
+          }
+        }
+      }
+      request.open("POST", "", true);
+      request.setRequestHeader('Content-Type', 'application/json');
+
+      while (1)
+      {
+        setTimeout(request_update, timeout, request);
+      }
+    }
+
+    function request_update(request)
+    {
+      request.send(JSON.stringify(
+        {
+          action: "update"
+        }
+      ));
+    }
+
+    function update_tiles(tiles)
+    {
+      for (id in tiles)
+      {
+        console.log(id, tiles[id])
+      }
+    }
+
   </script>
 </html>

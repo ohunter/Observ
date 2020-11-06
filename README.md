@@ -80,7 +80,6 @@ Describes how the area shall be decorated if anything.
 
 Describes a string which will be placed at the top of the area.
 
-
 ##### `frequency`
 
 How often the area will be updated.

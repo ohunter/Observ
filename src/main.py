@@ -58,7 +58,7 @@ def main(args: argparse.Namespace) -> None:
         config = json.load(fi)
 
     if args.web:
-        with wb.WebServer(config, ("", args.web), args.mode) as server:
+        with wb.WebServer(config, args.mode, ("", args.web)) as server:
             server.serve_forever()
     else:
         def sig_resize(sig, action) -> None:

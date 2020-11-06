@@ -2,6 +2,7 @@
   <head>
     <title>Observ Web Interface</title>
     <link rel="shortcut icon" href="../../media/observ_logo_icon.png" />
+    <meta charset="UTF-8">
   </head>
 
   <body onload="setup(); update()">
@@ -70,7 +71,7 @@
         e.setAttribute("width", e.calc_width());
         e.setAttribute("height", e.calc_height());
 
-        e.style.position = 'absolute';
+        e.style.position = "absolute";
         e.style.left = e.abs_pos().x * window.innerWidth;
         e.style.top = e.abs_pos().y * window.innerHeight;
 
@@ -92,7 +93,7 @@
           }
         }
       }
-      request.open("POST", "", true);
+      request.open("POST", "", false);
       request.setRequestHeader('Content-Type', 'application/json');
 
       while (1)
